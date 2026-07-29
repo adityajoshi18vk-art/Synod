@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-monad: #836EF9; /* Official Monad purple */
+  --color-monad-light: #A495FF;
+  --color-monad-dark: #6B56D9;
+  --color-success: #10B981;
+  --color-error: #EF4444;
+  --color-pending: #F59E0B;
+  --color-bg: #0A0A0A;
+  --color-card: #171717;
+  --color-border: #262626;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: #e5e5e5;
+  font-family: var(--font-sans);
+}
+
+.text-monad { color: var(--color-monad); }
+.bg-monad { background-color: var(--color-monad); }
+.border-monad { border-color: var(--color-monad); }

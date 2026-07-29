@@ -1,0 +1,102 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ISynodVoting",
+  "sourceName": "contracts/SynodEscrow.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "proposalId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getProposal",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "proposer",
+              "type": "address"
+            },
+            {
+              "internalType": "string",
+              "name": "description",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "address",
+              "name": "target",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "commitDeadline",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "revealDeadline",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "quorumThreshold",
+              "type": "uint256"
+            },
+            {
+              "internalType": "enum ISynodVoting.ProposalStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "yesWeight",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "noWeight",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "yesCount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "noCount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "tallied",
+              "type": "bool"
+            }
+          ],
+          "internalType": "struct ISynodVoting.Proposal",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
