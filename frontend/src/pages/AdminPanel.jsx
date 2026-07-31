@@ -2,15 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldAlert, Plus, ShieldCheck, Clock } from 'lucide-react';
 import { parseEther, encodeFunctionData, zeroHash } from 'viem';
-import { useAccount, useWriteContract, useConnect } from 'wagmi';
+import { useAccount, useWriteContract, useConnect, useSwitchChain } from 'wagmi';
+import { monadTestnet } from 'viem/chains';
 import { injected } from 'wagmi/connectors';
 import { ADDRESSES, publicClient } from '../lib/config';
 import { VOTING_ABI, ESCROW_ABI, TIMELOCK_ABI } from '../lib/abis';
 
 export default function AdminPanel() {
   const navigate = useNavigate();
-  const { isConnected, address } = useAccount();
+  const { isConnected, address, chainId } = useAccount();
   const { connect } = useConnect();
+  const { switchChainAsync } = useSwitchChain();
 
   // Create Proposal state
   const [desc, setDesc] = useState("Execute standard trading strategy Alpha");
@@ -25,6 +27,15 @@ export default function AdminPanel() {
   const handleCreateProposal = async (e) => {
     e.preventDefault();
     if (!isConnected) return alert("Please connect wallet");
+    
+    if (chainId !== monadTestnet.id) {
+      try {
+        await switchChainAsync({ chainId: monadTestnet.id });
+      } catch (err) {
+        return alert("You must switch to Monad Testnet to create a proposal!");
+      }
+    }
+
     try {
       // 1. Submit Proposal
       // commitWindow = 120s, revealWindow = 120s for demo safety

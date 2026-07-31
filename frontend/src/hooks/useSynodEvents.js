@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { publicClient, ADDRESSES } from '../lib/config';
 import { VOTING_ABI, ESCROW_ABI } from '../lib/abis';
+import { withBackoff } from '../lib/rpcHelper';
 
 export function useSynodEvents() {
   const [events, setEvents] = useState([]);
@@ -9,18 +10,25 @@ export function useSynodEvents() {
 
   const fetchActiveProposal = async () => {
     try {
-      const count = await publicClient.readContract({
-        address: ADDRESSES.voting,
-        abi: VOTING_ABI,
-        functionName: 'proposalCount',
-      });
-      if (count > 0n) {
-        const p = await publicClient.readContract({
+      const count = await withBackoff(() => Promise.race([
+        publicClient.readContract({
           address: ADDRESSES.voting,
           abi: VOTING_ABI,
-          functionName: 'getProposal',
-          args: [count],
-        });
+          functionName: 'proposalCount',
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("RPC Timeout on proposalCount")), 5000))
+      ]));
+      
+      if (count > 0n) {
+        const p = await withBackoff(() => Promise.race([
+          publicClient.readContract({
+            address: ADDRESSES.voting,
+            abi: VOTING_ABI,
+            functionName: 'getProposal',
+            args: [count],
+          }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("RPC Timeout on getProposal")), 5000))
+        ]));
         setActiveProposal(p);
       }
       setRpcError(null);
@@ -35,8 +43,12 @@ export function useSynodEvents() {
 
     const addEvent = (type, data) => {
       setEvents(prev => [{ id: Math.random().toString(), type, ...data, timestamp: Date.now() }, ...prev]);
-      if (type === 'ProposalCreated' || type === 'ProposalResolved' || type === 'VoteRevealed') {
-        fetchActiveProposal(); // refresh proposal state on major events
+      
+      if (type === 'ProposalCreated') {
+        fetchActiveProposal();
+      } else if (type === 'ProposalResolved') {
+        // Optimistically update status to avoid a re-fetch
+        setActiveProposal(prev => prev ? { ...prev, status: data.status, tallied: true } : prev);
       }
     };
 

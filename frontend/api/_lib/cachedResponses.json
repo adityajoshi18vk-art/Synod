@@ -1,0 +1,22 @@
+{
+  "Arjun": {
+    "vote": "NO",
+    "rationale": "High volatility arbitrage with unclear risk controls and opaque target address."
+  },
+  "Nova": {
+    "vote": "NO",
+    "rationale": "Insufficient data"
+  },
+  "Sentinel": {
+    "vote": "NO",
+    "rationale": "Insufficient information"
+  },
+  "Cipher": {
+    "vote": "NO",
+    "rationale": "Insufficient funds"
+  },
+  "Oracle": {
+    "vote": "NO",
+    "rationale": "Insufficient info"
+  }
+}

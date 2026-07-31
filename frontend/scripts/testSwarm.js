@@ -55,13 +55,20 @@ async function runSwarmCycle(cycleNum) {
   await publicClient.waitForTransactionReceipt({ hash: escrowTx });
 
   // 2. Trigger Swarm
-  await triggerDemoSwarm(proposalId.toString());
+  const mockDecisions = [
+    { name: 'Arjun', vote: 'YES', rationale: 'Test YES' },
+    { name: 'Nova', vote: 'YES', rationale: 'Test YES' },
+    { name: 'Sentinel', vote: 'NO', rationale: 'Test NO' },
+    { name: 'Cipher', vote: 'YES', rationale: 'Test YES' },
+    { name: 'Oracle', vote: 'NO', rationale: 'Test NO' }
+  ];
+  await triggerDemoSwarm(proposalId.toString(), mockDecisions);
 
   console.log(`Cycle ${cycleNum} Complete!`);
 }
 
 async function main() {
-  for(let i=1; i<=4; i++) {
+  for(let i=1; i<=1; i++) {
     await runSwarmCycle(i);
   }
 }

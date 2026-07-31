@@ -1,72 +1,157 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Activity, Settings, Play, Users } from 'lucide-react';
 import { formatEther } from 'viem';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSynodEvents } from '../hooks/useSynodEvents';
-import { triggerDemoSwarm } from '../lib/simulator';
+import { triggerDemoSwarm, autoResolveProposal } from '../lib/simulator';
+import { useCouncilVote } from '../hooks/useCouncilVote';
+import CouncilPanel from '../components/CouncilPanel';
 import ErrorBanner from '../components/ErrorBanner';
 import { publicClient, ADDRESSES } from '../lib/config';
 import { REGISTRY_ABI } from '../lib/abis';
+import { withBackoff } from '../lib/rpcHelper';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { events, activeProposal, rpcError, retry } = useSynodEvents();
+  const { councilMeta, councilLoading, councilError, triggerCouncilVote } = useCouncilVote();
   const [isSimulating, setIsSimulating] = useState(false);
+  const [swarmError, setSwarmError] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardError, setLeaderboardError] = useState(null);
 
-  useEffect(() => {
-    async function fetchLeaderboard() {
-      try {
-        const count = await publicClient.readContract({
-          address: ADDRESSES.registry,
-          abi: REGISTRY_ABI,
-          functionName: 'getAgentCount',
-        });
-        
-        const agentAddrs = [];
-        for (let i = 0; i < count; i++) {
-          const addr = await publicClient.readContract({
-            address: ADDRESSES.registry,
-            abi: REGISTRY_ABI,
-            functionName: 'agentList',
-            args: [BigInt(i)]
-          });
-          agentAddrs.push(addr);
-        }
-        
-        const agentsData = await Promise.all(agentAddrs.map(async (addr) => {
-          const rep = await publicClient.readContract({
-            address: ADDRESSES.registry,
-            abi: REGISTRY_ABI,
-            functionName: 'getReputation',
-            args: [addr],
-          });
-          const label = await publicClient.readContract({
-            address: ADDRESSES.registry,
-            abi: REGISTRY_ABI,
-            functionName: 'getAgentLabel',
-            args: [addr],
-          });
-          return { address: addr, label, reputation: Number(rep) };
-        }));
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(true);
 
-        agentsData.sort((a, b) => b.reputation - a.reputation);
-        setLeaderboard(agentsData.slice(0, 5)); // Top 5
-      } catch (err) {
-        console.error("Failed to load leaderboard:", err);
+  const liveYesWeight = useMemo(() => {
+    if (!activeProposal) return 0n;
+    let base = BigInt(activeProposal.yesWeight || 0);
+    let eventSum = 0n;
+    const seen = new Set();
+    
+    // Aggregate yes weights from local events (VoteRevealed with choice === true)
+    for (const ev of events) {
+      if (ev.type === 'VoteRevealed' && ev.choice === true && !seen.has(ev.voter)) {
+        eventSum += BigInt(ev.weight);
+        seen.add(ev.voter);
       }
     }
-    fetchLeaderboard();
-  }, [events]); // Refresh when events happen (like votes resolving)
+    
+    return base > eventSum ? base : eventSum;
+  }, [activeProposal, events]);
 
-  const handleSimulate = async () => {
-    if (!activeProposal || activeProposal.status !== 0) return; // Must be Pending (0)
-    setIsSimulating(true);
+  const fetchLeaderboard = async () => {
+    setIsLeaderboardLoading(true);
+    setLeaderboardError(null);
     try {
-      await triggerDemoSwarm(activeProposal.id.toString());
+      const count = await withBackoff(() => publicClient.readContract({
+        address: ADDRESSES.registry,
+        abi: REGISTRY_ABI,
+        functionName: 'getAgentCount',
+      }));
+
+      // 1. Multicall to get all agent addresses
+      const listCalls = [];
+      for (let i = 0; i < count; i++) {
+        listCalls.push({
+          address: ADDRESSES.registry,
+          abi: REGISTRY_ABI,
+          functionName: 'agentList',
+          args: [BigInt(i)]
+        });
+      }
+      const agentAddrsResult = await withBackoff(() => publicClient.multicall({
+        contracts: listCalls,
+        allowFailure: true
+      }));
+      const agentAddrs = agentAddrsResult
+        .filter(r => r.status === 'success')
+        .map(r => r.result);
+
+      // 2. Multicall to get agent details from the public `agents` mapping
+      const dataCalls = [];
+      for (const addr of agentAddrs) {
+        dataCalls.push({ address: ADDRESSES.registry, abi: REGISTRY_ABI, functionName: 'agents', args: [addr] });
+      }
+      const dataResults = await withBackoff(() => publicClient.multicall({
+        contracts: dataCalls,
+        allowFailure: true
+      }));
+
+      // 3. Assemble results
+      const results = [];
+      for (let i = 0; i < agentAddrs.length; i++) {
+        const agentResult = dataResults[i];
+        
+        if (agentResult.status === 'success') {
+          const [isRegistered, label, reputationScore, totalVotes, correctVotes] = agentResult.result;
+          results.push({
+            address: agentAddrs[i],
+            reputation: Number(reputationScore),
+            label: label || 'Unknown'
+          });
+        }
+      }
+
+      results.sort((a, b) => b.reputation - a.reputation);
+      setLeaderboard(results);
     } catch (err) {
-      console.error("Swarm failed:", err);
+      console.error("Failed to load leaderboard:", err);
+      setLeaderboardError("Failed to fetch agents. Rate limit exceeded.");
+    } finally {
+      setIsLeaderboardLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [activeProposal?.status]); // Refresh when proposal status changes (like when resolved)
+
+  useEffect(() => {
+    if (!activeProposal || Number(activeProposal.status) !== 0) return;
+
+    let timeoutId;
+    const now = Date.now();
+    const revealDeadlineMs = Number(activeProposal.revealDeadline) * 1000;
+    
+    if (now > revealDeadlineMs) {
+      // Deadline passed before page loaded or just now
+      autoResolveProposal(activeProposal.id).catch(console.error);
+    } else {
+      // Set timer to trigger right when deadline hits
+      timeoutId = setTimeout(() => {
+        autoResolveProposal(activeProposal.id).catch(console.error);
+      }, revealDeadlineMs - now + 2000); // 2 second buffer
+    }
+
+    return () => clearTimeout(timeoutId);
+  }, [activeProposal]);
+
+  const handleSimulate = async (e) => {
+    e?.preventDefault();
+    if (!activeProposal || Number(activeProposal.status) !== 0) return; // Must be Pending (0)
+    setIsSimulating(true);
+    setSwarmError(null);
+    console.log("🚀 [Demo] Trigger Demo Swarm clicked!");
+    
+    try {
+      console.log("🧠 [Demo] Fetching AI Council decisions...");
+      
+      // 1. Await the LLM API call FIRST
+      const councilDecisions = await triggerCouncilVote(activeProposal);
+      
+      console.log("⚡ [Demo] Submitting all on-chain transactions (unified swarm + council)...");
+      
+      // 2. Run the unified commit → reveal → tally pipeline
+      //    Council decisions are passed in so both burner and council agents
+      //    share the same on-chain commit/reveal windows.
+      await triggerDemoSwarm(activeProposal.id.toString(), councilDecisions);
+      
+      console.log("✅ [Demo] All Swarm and Council transactions completed!");
+      
+    } catch (err) {
+      console.error("💥 [Fatal Demo Error]:", err);
+      setSwarmError(err.message || "Simulation failed");
     } finally {
       setIsSimulating(false);
     }
@@ -75,8 +160,13 @@ export default function Dashboard() {
   const getStatusBadge = (status) => {
     switch (Number(status)) {
       case 0: return <span className="px-3 py-1 bg-pending/20 text-pending rounded-full text-sm font-medium border border-pending/30">Pending</span>;
-      case 1: return <span className="px-3 py-1 bg-success/20 text-success rounded-full text-sm font-medium border border-success/30">Approved</span>;
-      case 2: return <span className="px-3 py-1 bg-error/20 text-error rounded-full text-sm font-medium border border-error/30">Rejected</span>;
+      case 1: return (
+        <span className="px-3 py-1 bg-success/20 text-success rounded-full text-sm font-medium border border-success/30 flex items-center gap-1">
+          Consensus reached — funds released
+          <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
+        </span>
+      );
+      case 2: return <span className="px-3 py-1 bg-error/20 text-error rounded-full text-sm font-medium border border-error/30">Quorum not reached — refunded</span>;
       case 3: return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium border border-blue-500/30">Executed</span>;
       default: return null;
     }
@@ -126,16 +216,24 @@ export default function Dashboard() {
                 </div>
 
                 {Number(activeProposal.status) === 0 && (
-                  <div className="pt-4 border-t border-border flex justify-between items-center">
-                    <p className="text-sm text-gray-400">Awaiting agent consensus...</p>
-                    <button 
-                      onClick={handleSimulate}
-                      disabled={isSimulating}
-                      className="flex items-center gap-2 px-6 py-3 bg-monad hover:bg-monad-light disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all shadow-[0_0_20px_rgba(138,43,226,0.2)]"
-                    >
-                      {isSimulating ? <Activity size={18} className="animate-spin" /> : <Play size={18} />}
-                      {isSimulating ? 'Agents Running...' : 'Trigger Demo Swarm'}
-                    </button>
+                  <div className="pt-4 border-t border-border flex flex-col gap-4">
+                    {swarmError && (
+                      <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+                        {swarmError}
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-gray-400">Awaiting agent consensus...</p>
+                      <button 
+                        type="button"
+                        onClick={handleSimulate}
+                        disabled={isSimulating}
+                        className="flex items-center gap-2 px-6 py-3 bg-monad hover:bg-monad-light disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all shadow-[0_0_20px_rgba(138,43,226,0.2)]"
+                      >
+                        {isSimulating ? <Activity size={18} className="animate-spin" /> : <Play size={18} />}
+                        {isSimulating ? 'Agents Running...' : 'Trigger Demo Swarm'}
+                      </button>
+                    </div>
                   </div>
                 )}
                 
@@ -163,6 +261,14 @@ export default function Dashboard() {
             )}
           </div>
 
+          {/* Council Panel — LLM-backed agents */}
+          <CouncilPanel
+            councilMeta={councilMeta}
+            councilLoading={councilLoading}
+            councilError={councilError}
+            events={events}
+          />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Quorum Progress */}
             {activeProposal && (
@@ -171,12 +277,12 @@ export default function Dashboard() {
                 <div className="w-full bg-black rounded-full h-6 relative overflow-hidden border border-border">
                   <div 
                     className="absolute top-0 left-0 h-full bg-success transition-all duration-1000 ease-out"
-                    style={{ width: `${Math.min(100, (Number(activeProposal.yesWeight) / Number(activeProposal.quorumThreshold)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (Number(liveYesWeight) / Number(activeProposal.quorumThreshold)) * 100)}%` }}
                   />
                 </div>
                 <div className="flex justify-between mt-2 text-sm text-gray-400">
                   <span>0</span>
-                  <span>{activeProposal.yesWeight.toString()} / {activeProposal.quorumThreshold.toString()} Weight</span>
+                  <span>{liveYesWeight.toString()} / {activeProposal.quorumThreshold.toString()} Weight</span>
                 </div>
               </div>
             )}
@@ -187,8 +293,16 @@ export default function Dashboard() {
                 <Users size={20} className="text-monad" /> Agent Leaderboard
               </h3>
               <div className="space-y-3">
-                {leaderboard.length === 0 ? (
-                  <p className="text-sm text-gray-500">Loading agents...</p>
+                {leaderboardError ? (
+                  <div className="p-2 bg-red-500/10 rounded flex items-center justify-between">
+                    <p className="text-sm text-red-400">{leaderboardError}</p>
+                    <button onClick={fetchLeaderboard} className="text-xs px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded border border-red-500/30">Retry</button>
+                  </div>
+                ) : isLeaderboardLoading ? (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Activity size={14} className="animate-spin" />
+                    <p className="text-sm">Retrying/Loading agents...</p>
+                  </div>
                 ) : (
                   leaderboard.map((agent, idx) => (
                     <div key={agent.address} className="flex justify-between items-center text-sm p-2 rounded-lg bg-black/40 border border-border">

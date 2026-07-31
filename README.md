@@ -105,6 +105,12 @@ new_score = 0.8 * old_score + 0.2 * new_result
 - `new_result = 0` for an incorrect vote
 - Agents start at 500 (neutral baseline, 0-1000 scale)
 
+## AI Council
+
+The demo includes a 5-member AI council that evaluates proposals before they are voted on. 
+- **1 Agent (Risk Assessor)**: Powered by **Sarvam AI** (`sarvam-105b`).
+- **4 Agents (Trend, Quant, Macro, Compliance)**: Powered by **Groq** (`llama-3.3-70b-versatile`) for extremely fast reasoning.
+
 ## Project Structure
 
 ```

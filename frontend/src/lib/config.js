@@ -1,5 +1,6 @@
-import { createPublicClient, createWalletClient, custom, http } from 'viem';
+import { createPublicClient, createWalletClient, custom, http, fallback } from 'viem';
 import { monadTestnet } from 'viem/chains';
+import { generatePrivateKey } from 'viem/accounts';
 
 export const ADDRESSES = {
   registry: import.meta.env.VITE_AGENT_REGISTRY_ADDRESS,
@@ -8,17 +9,51 @@ export const ADDRESSES = {
   timelock: import.meta.env.VITE_TIMELOCK_ADDRESS,
 };
 
-export const BURNER_KEYS = [
-  import.meta.env.VITE_BURNER_PK_1,
-  import.meta.env.VITE_BURNER_PK_2,
-  import.meta.env.VITE_BURNER_PK_3,
-  import.meta.env.VITE_BURNER_PK_4,
-  import.meta.env.VITE_BURNER_PK_5,
-].filter(Boolean);
+// Fallback to random burner keys if not provided in .env
+const getBurnerKeys = () => {
+  const keys = [
+    import.meta.env.VITE_BURNER_PK_1,
+    import.meta.env.VITE_BURNER_PK_2,
+    import.meta.env.VITE_BURNER_PK_3,
+    import.meta.env.VITE_BURNER_PK_4,
+    import.meta.env.VITE_BURNER_PK_5,
+  ].filter(Boolean);
+  
+  while (keys.length < 5) keys.push(generatePrivateKey());
+  return keys;
+};
+
+// Fallback to random council keys if not provided in .env
+const getCouncilKeys = () => {
+  const keys = [
+    import.meta.env.VITE_COUNCIL_PK_1,
+    import.meta.env.VITE_COUNCIL_PK_2,
+    import.meta.env.VITE_COUNCIL_PK_3,
+    import.meta.env.VITE_COUNCIL_PK_4,
+    import.meta.env.VITE_COUNCIL_PK_5,
+  ].filter(Boolean);
+
+  while (keys.length < 5) keys.push(generatePrivateKey());
+  return keys;
+};
+
+export const BURNER_KEYS = getBurnerKeys();
+export const COUNCIL_KEYS = getCouncilKeys();
+
+export const COUNCIL_AGENTS = [
+  { name: 'Arjun', title: 'Risk Assessor', provider: 'Sarvam AI', model: 'sarvam-105b' },
+  { name: 'Nova', title: 'Trend Strategist', provider: 'Groq', model: 'llama-3.3-70b-versatile' },
+  { name: 'Sentinel', title: 'Compliance Auditor', provider: 'Groq', model: 'llama-3.3-70b-versatile' },
+  { name: 'Cipher', title: 'Quant Analyst', provider: 'Groq', model: 'llama-3.3-70b-versatile' },
+  { name: 'Oracle', title: 'Macro Economist', provider: 'Groq', model: 'llama-3.3-70b-versatile' },
+];
 
 export const publicClient = createPublicClient({
   chain: monadTestnet,
-  transport: http(import.meta.env.VITE_RPC_URL),
+  transport: fallback([
+    http(import.meta.env.VITE_RPC_URL_PRIMARY),
+    http(import.meta.env.VITE_RPC_URL_FALLBACK)
+  ]),
 });
 
 export const YES_RATIONALES = [

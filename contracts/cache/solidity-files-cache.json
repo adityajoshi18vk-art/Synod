@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "D:\\Synod\\contracts\\contracts\\AgentRegistry.sol": {
-      "lastModificationDate": 1785348674587,
-      "contentHash": "c5fcdac4dd812385f0e4ebadfc248792",
+      "lastModificationDate": 1785355747129,
+      "contentHash": "e799cd4f8b7b5016dd0bd090c7ade12e",
       "sourceName": "contracts/AgentRegistry.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -41,8 +41,8 @@
       ]
     },
     "D:\\Synod\\contracts\\contracts\\SynodVoting.sol": {
-      "lastModificationDate": 1785348717018,
-      "contentHash": "d2b67f3b204019e738130be386ab0bfc",
+      "lastModificationDate": 1785355747130,
+      "contentHash": "e4abd9550b942e7238f9cd33e38d7c91",
       "sourceName": "contracts/SynodVoting.sol",
       "solcConfig": {
         "version": "0.8.28",
@@ -81,8 +81,8 @@
       ]
     },
     "D:\\Synod\\contracts\\contracts\\SynodEscrow.sol": {
-      "lastModificationDate": 1785348747851,
-      "contentHash": "24aa6368c7f0b7cdf689a7cf38d05868",
+      "lastModificationDate": 1785355747129,
+      "contentHash": "0e3c506ae9e0e1842d80cb5c462c98e6",
       "sourceName": "contracts/SynodEscrow.sol",
       "solcConfig": {
         "version": "0.8.28",
