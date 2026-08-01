@@ -12,27 +12,31 @@ const deployer = createWalletClient({
   transport: http(import.meta.env.VITE_RPC_URL),
 });
 
+import { BURNER_KEYS } from '../src/lib/config.js';
+
 async function fundCouncil() {
-  console.log(`Funding Council Agents from deployer ${account.address}...`);
+  console.log(`Funding Agents from deployer ${account.address}...`);
   
   const balance = await publicClient.getBalance({ address: account.address });
   console.log(`Deployer balance: ${formatEther(balance)} MON`);
   
-  for (let i = 0; i < COUNCIL_KEYS.length; i++) {
-    const councilAccount = privateKeyToAccount(COUNCIL_KEYS[i]);
+  const allKeys = [...COUNCIL_KEYS, ...BURNER_KEYS];
+
+  for (let i = 0; i < allKeys.length; i++) {
+    const councilAccount = privateKeyToAccount(allKeys[i]);
     const councilBalance = await publicClient.getBalance({ address: councilAccount.address });
     
-    if (councilBalance < parseEther("0.1")) {
-      console.log(`Council ${i} (${councilAccount.address}) has ${formatEther(councilBalance)} MON. Funding 0.1 MON...`);
+    if (councilBalance < parseEther("0.5")) {
+      console.log(`Agent ${i} (${councilAccount.address}) has ${formatEther(councilBalance)} MON. Funding 0.5 MON...`);
       const hash = await deployer.sendTransaction({
         to: councilAccount.address,
-        value: parseEther("0.1")
+        value: parseEther("0.5")
       });
       console.log(`  Tx Sent: ${hash}`);
       await publicClient.waitForTransactionReceipt({ hash });
       console.log(`  Done.`);
     } else {
-      console.log(`Council ${i} (${councilAccount.address}) already has ${formatEther(councilBalance)} MON.`);
+      console.log(`Agent ${i} (${councilAccount.address}) already has ${formatEther(councilBalance)} MON.`);
     }
   }
 }

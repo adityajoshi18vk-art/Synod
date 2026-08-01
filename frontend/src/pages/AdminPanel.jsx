@@ -46,6 +46,9 @@ export default function AdminPanel() {
         args: [desc, parseEther(amount), target, 120n, 120n, BigInt(quorum)],
       });
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status === 'reverted') {
+        throw new Error(`Proposal submission reverted (tx: ${txHash})`);
+      }
       
       // Find ProposalCreated event to get ID
       const event = receipt.logs.map(l => {
@@ -62,7 +65,9 @@ export default function AdminPanel() {
           args: [pid],
           value: parseEther(amount),
         });
-        await publicClient.waitForTransactionReceipt({ hash: depositHash });
+        await publicClient.waitForTransactionReceipt({ hash: depositHash }).then(r => {
+          if (r.status === 'reverted') throw new Error(`Escrow deposit reverted (tx: ${depositHash})`);
+        });
         alert(`Proposal #${pid} created and escrow funded!`);
         navigate('/dashboard');
       }
@@ -90,7 +95,10 @@ export default function AdminPanel() {
         functionName: 'schedule',
         args: [ADDRESSES.escrow, 0n, pauseData, zeroHash, zeroHash, BigInt(MIN_DELAY)],
       });
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const scheduleReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      if (scheduleReceipt.status === 'reverted') {
+        throw new Error(`Schedule pause reverted (tx: ${txHash})`);
+      }
       setPauseStep(1);
       setCountdown(MIN_DELAY);
     } catch (err) {
@@ -116,7 +124,10 @@ export default function AdminPanel() {
         functionName: 'execute',
         args: [ADDRESSES.escrow, 0n, pauseData, zeroHash, zeroHash],
       });
-      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const executeReceipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      if (executeReceipt.status === 'reverted') {
+        throw new Error(`Execute pause reverted (tx: ${txHash})`);
+      }
       alert("Escrow Paused successfully!");
       setPauseStep(0);
     } catch (err) {

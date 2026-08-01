@@ -51,8 +51,8 @@ export const COUNCIL_AGENTS = [
 export const publicClient = createPublicClient({
   chain: monadTestnet,
   transport: fallback([
-    http(import.meta.env.VITE_RPC_URL_PRIMARY),
-    http(import.meta.env.VITE_RPC_URL_FALLBACK)
+    http(import.meta.env.VITE_RPC_URL_PRIMARY, { timeout: 30_000 }),
+    http(import.meta.env.VITE_RPC_URL_FALLBACK, { timeout: 30_000 })
   ]),
 });
 

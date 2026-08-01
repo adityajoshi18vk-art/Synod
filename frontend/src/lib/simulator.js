@@ -36,19 +36,23 @@ async function commitAgent(agent, label, proposalId) {
         abi: VOTING_ABI,
         functionName: 'commitVote',
         args: [BigInt(proposalId), hashData],
-        gas: 100000n,
+        gas: 280000n,
       }),
-      8000,
+      30000,
       `Commit TX Send (${label})`
     );
 
     console.log(`[${label}] TX Sent: ${hash}. Waiting for receipt...`);
 
-    await withTimeout(
+    const receipt = await withTimeout(
       publicClient.waitForTransactionReceipt({ hash }),
-      8000,
+      30000,
       `Receipt Wait (${label})`
     );
+
+    if (receipt.status === 'reverted') {
+      throw new Error(`Transaction reverted (tx: ${hash})`);
+    }
 
     console.log(`✅ [${label}] Commit confirmed!`);
     return agent;
@@ -82,19 +86,23 @@ async function revealAgent(agent, label, proposalId) {
         abi: VOTING_ABI,
         functionName: 'revealVote',
         args: [BigInt(proposalId), agent.choice, agent.salt, rationale],
-        gas: 150000n,
+        gas: 420000n,
       }),
-      8000,
+      30000,
       `Reveal TX Send (${label})`
     );
 
     console.log(`[${label}] TX Sent: ${hash}. Waiting for receipt...`);
 
-    await withTimeout(
+    const receipt = await withTimeout(
       publicClient.waitForTransactionReceipt({ hash }),
-      8000,
+      30000,
       `Receipt Wait (${label})`
     );
+
+    if (receipt.status === 'reverted') {
+      throw new Error(`Transaction reverted (tx: ${hash})`);
+    }
 
     console.log(`✅ [${label}] Reveal confirmed: ${agent.choice ? 'YES' : 'NO'}`);
     return agent;
@@ -130,8 +138,8 @@ function buildCouncilAgents(councilDecisions) {
       account,
       chain: monadTestnet,
       transport: fallback([
-        http(import.meta.env.VITE_RPC_URL_PRIMARY),
-        http(import.meta.env.VITE_RPC_URL_FALLBACK)
+        http(import.meta.env.VITE_RPC_URL_PRIMARY, { timeout: 30_000 }),
+        http(import.meta.env.VITE_RPC_URL_FALLBACK, { timeout: 30_000 })
       ]),
     });
     const choice = decision.vote === 'YES';
@@ -170,8 +178,8 @@ export async function triggerDemoSwarm(proposalId, councilDecisions) {
       account,
       chain: monadTestnet,
       transport: fallback([
-        http(import.meta.env.VITE_RPC_URL_PRIMARY),
-        http(import.meta.env.VITE_RPC_URL_FALLBACK)
+        http(import.meta.env.VITE_RPC_URL_PRIMARY, { timeout: 30_000 }),
+        http(import.meta.env.VITE_RPC_URL_FALLBACK, { timeout: 30_000 })
       ]),
     });
     // Hardcoded vote split: first 4 vote YES (80%), last 1 votes NO (20%)
@@ -232,17 +240,13 @@ export async function triggerDemoSwarm(proposalId, councilDecisions) {
     functionName: 'getProposal',
     args: [BigInt(proposalId)],
   });
-
-  const commitDeadline = Number(proposal.commitDeadline) * 1000;
-  let now = Date.now();
-  if (now < commitDeadline) {
-    const waitTime = commitDeadline - now + 2000; // wait 2 extra seconds to be safe
-    console.log(`⏳ Waiting ${Math.round(waitTime / 1000)}s for commit window to close...`);
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-  } else {
-    console.log("⏳ Commit window already closed. Proceeding to reveal.");
+  const commitDeadline = proposal.commitDeadline;
+  console.log(`⏳ Polling chain until block.timestamp > commitDeadline (${commitDeadline})...`);
+  while (true) {
+    const block = await publicClient.getBlock();
+    if (block.timestamp > commitDeadline + 3n) break;
+    await delay(3000);
   }
-
   // --- 3. REVEAL PHASE (parallel via Promise.allSettled) ---
   console.log("🔓 Starting Reveal Phase (parallel)...");
 
@@ -256,7 +260,7 @@ export async function triggerDemoSwarm(proposalId, councilDecisions) {
     .filter(r => r.status === 'fulfilled' && r.value !== null)
     .map(r => r.value);
 
-  console.log(`✅ Reveal Phase done. ${successfulReveals.length}/${successfulCommits.length} succeeded.`);
+  console.log(`✅ Reveal Phase done. ${successfulReveals.length}/${allAgents.length} succeeded.`);
 
   // Log council-specific summary
   const councilReveals = successfulReveals.filter(a => a.tag === 'Council');
@@ -273,40 +277,46 @@ export async function triggerDemoSwarm(proposalId, councilDecisions) {
   }
 
   // --- 4. WAIT FOR REVEAL WINDOW TO CLOSE ---
-  const revealDeadline = Number(proposal.revealDeadline) * 1000;
-  now = Date.now();
-  if (now < revealDeadline) {
-    const waitTime = revealDeadline - now + 2000;
-    console.log(`⏳ Waiting ${Math.round(waitTime / 1000)}s for reveal window to close...`);
-    await new Promise(resolve => setTimeout(resolve, waitTime));
+  const revealDeadline = proposal.revealDeadline;
+  console.log(`⏳ Polling chain until block.timestamp > revealDeadline (${revealDeadline})...`);
+  while (true) {
+    const block = await publicClient.getBlock();
+    if (block.timestamp > revealDeadline + 3n) break;
+    await delay(3000);
   }
 
   // --- 5. TALLY ---
   console.log("⚖️ Tallying votes...");
-  if (successfulReveals.length > 0) {
-    const tallyAgent = successfulReveals[0];
-    try {
-      const txHash = await withTimeout(
-        tallyAgent.client.writeContract({
-          address: ADDRESSES.voting,
-          abi: VOTING_ABI,
-          functionName: 'tallyVotes',
-          args: [BigInt(proposalId)],
-          gas: 400000n,
-        }),
-        8000,
-        `Tally TX Send`
-      );
+  if (successfulReveals.length === 0) {
+    console.error("❌ CRITICAL: 0 reveals succeeded. Aborting tally to prevent permanently burning the proposal with a 0/0 result.");
+    return;
+  }
 
-      await withTimeout(
-        publicClient.waitForTransactionReceipt({ hash: txHash }),
-        8000,
-        `Tally Receipt Wait`
-      );
-      console.log(`🎉 Tally complete! (tx: ${txHash})`);
-    } catch (err) {
-      console.error("Tally failed:", err.shortMessage || err.message);
+  const tallyAgent = successfulReveals[0];
+  try {
+    const txHash = await withTimeout(
+      tallyAgent.client.writeContract({
+        address: ADDRESSES.voting,
+        abi: VOTING_ABI,
+        functionName: 'tallyVotes',
+        args: [BigInt(proposalId)],
+      }),
+      30000,
+      `Tally TX Send`
+    );
+
+    const tallyReceipt = await withTimeout(
+      publicClient.waitForTransactionReceipt({ hash: txHash }),
+      30000,
+      `Tally Receipt Wait`
+    );
+
+    if (tallyReceipt.status === 'reverted') {
+      throw new Error(`Tally transaction reverted (tx: ${txHash})`);
     }
+    console.log(`🎉 Tally complete! (tx: ${txHash})`);
+  } catch (err) {
+    console.error("Tally failed:", err.shortMessage || err.message);
   }
 
   console.log("🏁 Demo Swarm finished.");
@@ -326,10 +336,10 @@ export async function autoResolveProposal(proposalId) {
       args: [BigInt(proposalId)],
     });
 
-    const now = Date.now();
-    const revealDeadline = Number(proposal.revealDeadline) * 1000;
+    const block = await publicClient.getBlock();
+    const revealDeadline = proposal.revealDeadline;
 
-    if (now <= revealDeadline) {
+    if (block.timestamp <= revealDeadline + 3n) {
       return; // Not ready yet
     }
 
@@ -339,13 +349,18 @@ export async function autoResolveProposal(proposalId) {
       account,
       chain: monadTestnet,
       transport: fallback([
-        http(import.meta.env.VITE_RPC_URL_PRIMARY),
-        http(import.meta.env.VITE_RPC_URL_FALLBACK)
+        http(import.meta.env.VITE_RPC_URL_PRIMARY, { timeout: 30_000 }),
+        http(import.meta.env.VITE_RPC_URL_FALLBACK, { timeout: 30_000 })
       ]),
     });
 
     // 1. Tally if pending
     if (Number(proposal.status) === 0 && !proposal.tallied) {
+      if (proposal.yesCount === 0n && proposal.noCount === 0n) {
+        console.error(`[AutoResolve] ❌ CRITICAL: 0 reveals found for proposal ${proposalId}. Aborting tally to prevent burning it with a 0/0 result.`);
+        return;
+      }
+
       console.log(`[AutoResolve] Tallying proposal ${proposalId} at ${new Date().toISOString()}...`);
       console.log(`[AutoResolve] Executing tallyVotes(${proposalId}) via wallet client...`);
       try {
@@ -354,9 +369,11 @@ export async function autoResolveProposal(proposalId) {
           abi: VOTING_ABI,
           functionName: 'tallyVotes',
           args: [BigInt(proposalId)],
-          gas: 400000n,
         });
-        await publicClient.waitForTransactionReceipt({ hash });
+        const tallyReceipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (tallyReceipt.status === 'reverted') {
+          throw new Error(`AutoResolve tally reverted (tx: ${hash})`);
+        }
         console.log(`[AutoResolve] Tally confirmed: ${hash}`);
       } catch (err) {
         if (!err.message.includes("Already tallied") && !err.message.includes("Proposal not pending")) {
@@ -401,16 +418,18 @@ export async function autoResolveProposal(proposalId) {
               abi: ESCROW_ABI,
               functionName: 'release',
               args: [BigInt(proposalId)],
-              gas: 200000n,
             });
-            await publicClient.waitForTransactionReceipt({ hash });
+            const releaseReceipt = await publicClient.waitForTransactionReceipt({ hash });
+            if (releaseReceipt.status === 'reverted') {
+              throw new Error(`AutoResolve release reverted (tx: ${hash})`);
+            }
             console.log(`[AutoResolve] Release confirmed: ${hash}`);
           } catch (err) {
             if (!err.message.includes("Already released")) {
               console.error("[AutoResolve] Release failed:", err.shortMessage || err.message);
             }
           }
-        } else if (Number(updatedProposal.status) === 2 || (now > revealDeadline && !updatedProposal.tallied)) { // Rejected or stale
+        } else if (Number(updatedProposal.status) === 2 || (block.timestamp > revealDeadline + 3n && !updatedProposal.tallied)) { // Rejected or stale
           console.log(`[AutoResolve] Proposal Rejected/Stale. Refunding escrow for ${proposalId} at ${new Date().toISOString()}...`);
           console.log(`[AutoResolve] Executing refund(${proposalId}) via wallet client...`);
           try {
@@ -419,9 +438,11 @@ export async function autoResolveProposal(proposalId) {
               abi: ESCROW_ABI,
               functionName: 'refund',
               args: [BigInt(proposalId)],
-              gas: 200000n,
             });
-            await publicClient.waitForTransactionReceipt({ hash });
+            const refundReceipt = await publicClient.waitForTransactionReceipt({ hash });
+            if (refundReceipt.status === 'reverted') {
+              throw new Error(`AutoResolve refund reverted (tx: ${hash})`);
+            }
             console.log(`[AutoResolve] Refund confirmed: ${hash}`);
           } catch (err) {
             if (!err.message.includes("Already refunded")) {

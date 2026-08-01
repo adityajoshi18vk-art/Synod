@@ -1,22 +1,22 @@
 {
   "Arjun": {
     "vote": "NO",
-    "rationale": "High volatility arbitrage with unclear risk controls and opaque target address."
+    "rationale": "High volatility and unverified target address."
   },
   "Nova": {
-    "vote": "NO",
-    "rationale": "Insufficient data"
+    "vote": "YES",
+    "rationale": "Aligned with tech trends"
   },
   "Sentinel": {
     "vote": "NO",
-    "rationale": "Insufficient information"
+    "rationale": "Insufficient info"
   },
   "Cipher": {
-    "vote": "NO",
-    "rationale": "Insufficient funds"
+    "vote": "YES",
+    "rationale": "Low amount"
   },
   "Oracle": {
-    "vote": "NO",
-    "rationale": "Insufficient info"
+    "vote": "YES",
+    "rationale": "Approved"
   }
 }
