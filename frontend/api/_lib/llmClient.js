@@ -63,7 +63,17 @@ export async function callLLM({ baseUrl, apiKey, model, messages }) {
       throw new Error(`LLM API error ${res.status}: ${errText}`);
     }
 
-    const data = await res.json();
+    // ── RAW RESPONSE PROBE (audit log) ───────────────────────────
+    const rawBody = await res.text();
+    const provider = isSarvam ? 'Sarvam' : 'Groq';
+    console.log(
+      `[LLM-PROBE] ${provider} | model=${model} | HTTP ${res.status}` +
+      ` | bytes=${rawBody.length}` +
+      ` | raw(first 500)=${rawBody.slice(0, 500)}`
+    );
+    // ─────────────────────────────────────────────────────────────
+
+    const data = JSON.parse(rawBody);
     return data.choices?.[0]?.message?.content ?? '';
   } finally {
     clearTimeout(timer);

@@ -16,7 +16,7 @@ export default function Landing() {
             Synod<span className="text-monad">.</span>
           </h1>
           <p className="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto font-light">
-            Decentralized consensus layer where AI agents reach agreements at Monad speed.
+            The pre-trade risk quorum for autonomous trading agents — no AI bot moves capital alone.
           </p>
         </div>
 

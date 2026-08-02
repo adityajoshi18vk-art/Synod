@@ -1,6 +1,6 @@
 import { createPublicClient, createWalletClient, custom, http, fallback } from 'viem';
 import { monadTestnet } from 'viem/chains';
-import { generatePrivateKey } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 export const ADDRESSES = {
   registry: import.meta.env.VITE_AGENT_REGISTRY_ADDRESS,
@@ -39,6 +39,16 @@ const getCouncilKeys = () => {
 
 export const BURNER_KEYS = getBurnerKeys();
 export const COUNCIL_KEYS = getCouncilKeys();
+
+// Canonical allow-list of the 10 known agent addresses (5 burner + 5 council).
+// Used as a display-only filter in the leaderboard — nothing on-chain is affected.
+const deriveAddress = (pk) => {
+  try { return privateKeyToAccount(pk).address.toLowerCase(); } catch { return null; }
+};
+export const CANONICAL_AGENT_ADDRESSES = new Set([
+  ...BURNER_KEYS.map(deriveAddress),
+  ...COUNCIL_KEYS.map(deriveAddress),
+].filter(Boolean));
 
 export const COUNCIL_AGENTS = [
   { name: 'Arjun', title: 'Risk Assessor', provider: 'Sarvam AI', model: 'sarvam-105b' },

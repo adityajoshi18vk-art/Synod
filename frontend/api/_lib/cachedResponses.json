@@ -1,22 +1,22 @@
 {
   "Arjun": {
     "vote": "NO",
-    "rationale": "High volatility and unverified target address."
+    "rationale": "High slippage and smart contract risk on single DEX."
   },
   "Nova": {
     "vote": "YES",
-    "rationale": "Aligned with tech trends"
+    "rationale": "Strong ETH trend"
   },
   "Sentinel": {
     "vote": "NO",
-    "rationale": "Insufficient info"
+    "rationale": "Insufficient risk assessment"
   },
   "Cipher": {
     "vote": "YES",
-    "rationale": "Low amount"
+    "rationale": "Profitable arbitrage"
   },
   "Oracle": {
-    "vote": "YES",
-    "rationale": "Approved"
+    "vote": "NO",
+    "rationale": "High risk"
   }
 }

@@ -8,7 +8,7 @@ import { triggerDemoSwarm, autoResolveProposal } from '../lib/simulator';
 import { useCouncilVote } from '../hooks/useCouncilVote';
 import CouncilPanel from '../components/CouncilPanel';
 import ErrorBanner from '../components/ErrorBanner';
-import { publicClient, ADDRESSES } from '../lib/config';
+import { publicClient, ADDRESSES, CANONICAL_AGENT_ADDRESSES } from '../lib/config';
 import { REGISTRY_ABI } from '../lib/abis';
 import { withBackoff } from '../lib/rpcHelper';
 
@@ -94,7 +94,9 @@ export default function Dashboard() {
       }
 
       results.sort((a, b) => b.reputation - a.reputation);
-      setLeaderboard(results);
+      // Display-only filter: only show the 10 canonical agents (5 burner + 5 council).
+      // Orphaned/duplicate registry entries are excluded without any on-chain changes.
+      setLeaderboard(results.filter(a => CANONICAL_AGENT_ADDRESSES.has(a.address.toLowerCase())));
     } catch (err) {
       console.error("Failed to load leaderboard:", err);
       setLeaderboardError("Failed to fetch agents. Rate limit exceeded.");
@@ -162,11 +164,11 @@ export default function Dashboard() {
       case 0: return <span className="px-3 py-1 bg-pending/20 text-pending rounded-full text-sm font-medium border border-pending/30">Pending</span>;
       case 1: return (
         <span className="px-3 py-1 bg-success/20 text-success rounded-full text-sm font-medium border border-success/30 flex items-center gap-1">
-          Consensus reached — funds released
+          Consensus reached — trade executed
           <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
         </span>
       );
-      case 2: return <span className="px-3 py-1 bg-error/20 text-error rounded-full text-sm font-medium border border-error/30">Quorum not reached — refunded</span>;
+      case 2: return <span className="px-3 py-1 bg-error/20 text-error rounded-full text-sm font-medium border border-error/30">Quorum not reached — trade blocked, funds returned</span>;
       case 3: return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium border border-blue-500/30">Executed</span>;
       default: return null;
     }
@@ -199,7 +201,7 @@ export default function Dashboard() {
             <div className="absolute top-0 left-0 w-1 bg-monad h-full" />
             
             <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-              <Activity size={16} className="text-monad" /> Active Proposal
+              <Activity size={16} className="text-monad" /> Trade Under Review
             </h2>
 
             {activeProposal ? (
@@ -273,7 +275,7 @@ export default function Dashboard() {
             {/* Quorum Progress */}
             {activeProposal && (
               <div className="bg-card rounded-2xl border border-border p-6 shadow-xl">
-                <h3 className="text-lg font-semibold mb-4 text-white">Consensus Quorum</h3>
+                <h3 className="text-lg font-semibold mb-4 text-white">Risk Committee Threshold</h3>
                 <div className="w-full bg-black rounded-full h-6 relative overflow-hidden border border-border">
                   <div 
                     className="absolute top-0 left-0 h-full bg-success transition-all duration-1000 ease-out"

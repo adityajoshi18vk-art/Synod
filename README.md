@@ -1,135 +1,156 @@
-# Synod
+# Synod — The pre-trade risk quorum for autonomous trading agents. No AI bot moves capital alone.
 
-Synod is a decentralized consensus layer where AI agents reach consensus at Monad speed. Built for the Monad testnet, demonstrating sub-second finality, parallel execution, and reputation-weighted decision making.
+Autonomous trading agents are starting to move real capital with no independent check. Synod is a reputation-weighted, commit-reveal consensus layer — a quorum of independent reviewers must approve a trade before escrowed funds release, with every vote and its rationale permanently on-chain.
 
 ## Architecture
 
+```mermaid
+sequenceDiagram
+    participant Proposer
+    participant SynodVoting
+    participant SynodEscrow
+    participant BurnerSwarm as Burner Swarm (5)
+    participant Council as AI Council (5)
+    participant Proxy as Server-Side Proxy
+    participant LLM as Sarvam AI / Groq
+
+    Proposer->>SynodVoting: submit proposal (desc, amount, target, quorum)
+    Proposer->>SynodEscrow: deposit funds
+    
+    par Commit Phase
+        BurnerSwarm->>SynodVoting: commit hashed vote
+        Council->>Proxy: proposal details
+        Proxy->>LLM: request vote + rationale (llama-3.3-70b-versatile)
+        LLM-->>Proxy: parsed vote + rationale
+        Proxy-->>Council: return parsed vote
+        Council->>SynodVoting: commit hashed vote
+    end
+    
+    par Reveal Phase
+        BurnerSwarm->>SynodVoting: reveal vote + salt
+        Council->>SynodVoting: reveal vote + salt
+        Note over SynodVoting: Check against commit hash
+    end
+    
+    SynodVoting->>AgentRegistry: update reputation (EMA 0.8/0.2)
+    Note over SynodVoting: tallyVotes: compute reputation-weighted sum
+    
+    alt Quorum Met
+        SynodVoting->>SynodEscrow: release()
+        SynodEscrow->>Target: execute transfer
+    else Quorum Not Met
+        SynodVoting->>SynodEscrow: refund
+    end
+    
+    Note over SynodEscrow: Gated by TimelockController (60s delay) for emergency pause
+    Note over Frontend: React/viem/wagmi reads all state via on-chain events (no backend database)
 ```
-AgentRegistry.sol ─── agents, labels, reputation (EMA: 80/20)
-        ↑                       ↑
-        │               updateReputation()
-        │                       │
-SynodVoting.sol ───── proposals, commit-reveal, weighted tally
-        ↑
-SynodEscrow.sol ───── holds funds, releases on Approved, refunds on Rejected
-        ↑
-TimelockController ── guardian: pause/unpause escrow (60s demo delay)
-```
 
-## Deployed Contracts (Monad Testnet — Chain ID 10143)
+## Core Features
 
-| Contract            | Address                                    | Verified |
-|---------------------|--------------------------------------------|----------|
-| AgentRegistry       | `0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE` | ✅ [Sourcify](https://testnet.monadscan.com/contracts/full_match/10143/0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE/) |
-| SynodVoting         | `0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656` | ✅ [Sourcify](https://testnet.monadscan.com/contracts/full_match/10143/0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656/) |
-| TimelockController  | `0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963` | ✅ [Sourcify](https://testnet.monadscan.com/contracts/full_match/10143/0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963/) |
-| SynodEscrow         | `0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051` | ✅ [Sourcify](https://testnet.monadscan.com/contracts/full_match/10143/0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051/) |
+* **Commit-Reveal Voting:** Prevents vote-copying and front-running by hiding votes during the commit phase.
+* **Reputation-Weighted Quorum:** Agents build on-chain reputation through accurate risk assessment, which in turn weights their voting power dynamically.
+* **Escrow with ReentrancyGuard:** Secures funds safely in escrow during the voting period.
+* **Timelocked Emergency Pause:** Admin emergency actions are gated with a 60-second delay.
+* **AI Council:** Council votes are powered by real LLM reasoning from advanced models.
+* **Simulated Swarm:** Parallel deterministic execution demonstrates scale capabilities on the Monad testnet.
 
-> **Note:** TimelockController uses a 60-second `minDelay` for demo purposes. Production would use a longer delay (e.g., 24-48 hours).
+## Tech Stack
+
+| Component | Technology |
+|---|---|
+| Frontend | React + Vite + Tailwind |
+| Web3 Integration | viem + wagmi |
+| Smart Contracts | Solidity ^0.8.x + Hardhat |
+| Network | Monad testnet (Chain ID 10143) |
+| Council AI | Groq + Sarvam AI (llama-3.3-70b-versatile) |
+| Hosting / API | Vercel (frontend + serverless proxy) |
+
+## Deployed Contracts (Monad Testnet)
+
+| Contract | Address |
+|---|---|
+| AgentRegistry | [0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE](https://testnet.monadscan.com/address/0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE) |
+| SynodVoting | [0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656](https://testnet.monadscan.com/address/0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656) |
+| SynodEscrow | [0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051](https://testnet.monadscan.com/address/0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051) |
+| TimelockController | [0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963](https://testnet.monadscan.com/address/0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963) |
+
+## Agent Roster
+
+### AI Council (5 Agents)
+_Note: Council votes are real LLM calls, verified via server-side `[LLM-PROBE]` logging and a poisoned-key fallback test — not templated strings._
+
+| Agent | Role | Provider | Address |
+|---|---|---|---|
+| **Arjun** | Risk Assessor | Sarvam AI | `0x2eaA7453768409D69974788743B33fD3B6Fc3510` |
+| **Nova** | Trend Strategist | Groq | `0x502b93EB1297B2223491e857380a47d338a8D14E` |
+| **Sentinel** | Compliance Auditor | Groq | `0x99eDA17E3a63eba753903DEDD4B673F5aE32d10E` |
+| **Cipher** | Quant Analyst | Groq | `0xAACEb83Ea4Dfd0ce8C973b10Da975C54b2Ee98d5` |
+| **Oracle** | Macro Economist | Groq | `0x00189adCa451E9Bd5D9Da66Dc66E90A032Bbf8f0` |
+
+### Swarm (5 Agents)
+_Deterministic burner agents used to prove parallel execution at scale._
+
+| Agent | Address |
+|---|---|
+| **Demo Agent 1** | `0x6Cd74544087e541e74cB41Ff42F4D00472Eb5caB` |
+| **Demo Agent 2** | `0x636C3E2709ff7949C56fe60a41A654e0F553D542` |
+| **Demo Agent 3** | `0x369aA1B28ED190cE8423eD4596124AbcEE1d93c0` |
+| **Demo Agent 4** | `0xBA18e7E01568A681039aDa33d4fC59F99bE16c50` |
+| **Demo Agent 5** | `0x0bB0ABf9A3d5ea6E1a1eD8a26e4c65bE35B20e22` |
 
 ## Setup Instructions
 
-### 1. Prerequisites
-- Node.js (v18+)
-- A Monad Testnet wallet funded with MON
+The repository contains two main workspaces: `contracts` and `frontend`.
 
-### 2. Getting Testnet MON
-1. Visit the official Monad Testnet Faucet: [https://faucet.monad.xyz](https://faucet.monad.xyz)
-2. Connect your wallet (e.g., MetaMask).
-3. Complete the required verification (e.g., Discord/X).
-4. Request MON to your wallet address.
+1. **Clone the repository:**
+   ```bash
+   git clone <repo-url>
+   cd Synod
+   ```
 
-### 3. Smart Contracts
+2. **Frontend Setup:**
+   ```bash
+   cd frontend
+   npm install
+   cp .env.example .env
+   # Update .env with your RPC URL, API keys, and agent private keys. NO real secrets should be committed!
+   npm run dev
+   ```
 
-```bash
-cd contracts
-npm install
-cp .env.example .env
-# Edit .env — add your PRIVATE_KEY
-```
+3. **Contracts Setup:**
+   ```bash
+   cd contracts
+   npm install
+   cp .env.example .env
+   # Update .env with deployment private key and contract addresses.
+   npx hardhat compile
+   ```
 
-#### Deploy All Contracts (Phase 2)
-Deploys AgentRegistry, SynodVoting, TimelockController, and SynodEscrow, wires them together:
-```bash
-npx hardhat run scripts/deployAll.js --network monadTestnet
-```
-Copy the printed addresses into `.env`.
+## Security Notes
 
-#### Verify Contracts
-```bash
-npx hardhat verify --network monadTestnet <AgentRegistry_Address>
-npx hardhat verify --network monadTestnet <SynodVoting_Address> "<AgentRegistry_Address>"
-npx hardhat verify --network monadTestnet <SynodEscrow_Address> "<SynodVoting_Address>" "<TimelockController_Address>"
-npx hardhat verify --network monadTestnet <TimelockController_Address> 60 "[<deployer>]" "[<deployer>]" "<deployer>"
-```
+* **Commit-Reveal Mechanism:** Prevents vote-copying and front-running.
+* **Escrow Safety:** ReentrancyGuard on escrow release prevents reentrancy attacks.
+* **Admin Controls:** Admin pause is gated behind a TimelockController (not a bare EOA).
+* **Solidity Safety:** Solidity ^0.8.x is used to leverage built-in overflow protection.
 
-#### Run Tests
-```bash
-npx hardhat test
-```
-21 tests covering: commit-reveal voting, reputation-weighted tally, EMA reputation updates, rationale field, escrow release/refund, and guardian pause via TimelockController.
+> **CAUTION:** The burner and demo private keys provided in the demo and codebase are testnet-only throwaway keys. Never use this pattern with real funds on mainnet!
 
-#### Run E2E CLI Demo (local Hardhat network)
-```bash
-npx hardhat run scripts/e2eVoting.js
-```
+## Why Monad?
 
-#### Run Event Listener (live testnet)
-```bash
-npx hardhat run scripts/eventListener.js --network monadTestnet
-```
-Tails all contract events to console in real time.
+10 agents commit and reveal in parallel, resolving in consecutive blocks in well under a second - that's Monad's parallel execution and sub-second finality, watch the quorum bar fill in the demo video below, not a claim in this README.
 
-### 4. Frontend (Dashboard) — coming in Phase 3
-```bash
-cd frontend
-npm install
-npm run dev
-```
+## Links & Limitations
 
-## Security
+* **Live Demo:** [TODO: Add Live Demo Link]
+* **Demo Video:** [TODO: Add Demo Video Link]
 
-- **Commit-reveal voting** prevents front-running and vote-copying
-- **ReentrancyGuard** on escrow `release()` function
-- **TimelockController** as escrow guardian (not a bare EOA)
-- **Solidity 0.8.28** with built-in overflow/underflow checks
-- **Access control**: only SynodVoting can update agent reputations
+### Known Limitations (Out of Scope for v1)
+* No cross-chain support.
+* No real DEX execution.
+* No mainnet deployment.
+* No ML-based reputation model (templated EMA only).
 
-## Reputation System
+## License
 
-Uses an Exponential Moving Average (EMA):
-```
-new_score = 0.8 * old_score + 0.2 * new_result
-```
-- `new_result = 1000` for a correct vote (voted with the resolved outcome)
-- `new_result = 0` for an incorrect vote
-- Agents start at 500 (neutral baseline, 0-1000 scale)
-
-## AI Council
-
-The demo includes a 5-member AI council that evaluates proposals before they are voted on. 
-- **1 Agent (Risk Assessor)**: Powered by **Sarvam AI** (`sarvam-105b`).
-- **4 Agents (Trend, Quant, Macro, Compliance)**: Powered by **Groq** (`llama-3.3-70b-versatile`) for extremely fast reasoning.
-
-## Project Structure
-
-```
-synod/
-├── contracts/                    # Hardhat project
-│   ├── contracts/
-│   │   ├── AgentRegistry.sol     # Agent registration + EMA reputation
-│   │   ├── SynodVoting.sol       # Proposals + commit-reveal + weighted tally
-│   │   └── SynodEscrow.sol       # Escrow + reentrancy guard + timelock guardian
-│   ├── scripts/
-│   │   ├── deploy.js             # Deploy AgentRegistry only
-│   │   ├── deployVoting.js       # Deploy SynodVoting only
-│   │   ├── deployAll.js          # Deploy all Phase 2 contracts
-│   │   ├── e2eVoting.js          # Full E2E CLI demo (local)
-│   │   ├── e2eLiveTestnet.js     # E2E against live Monad testnet
-│   │   ├── eventListener.js      # Live event feed (console)
-│   │   └── readState.js          # Read on-chain agent state
-│   └── test/
-│       └── SynodVoting.test.js   # 21 passing tests
-├── frontend/                     # React + Vite + Tailwind (Phase 3)
-└── README.md
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

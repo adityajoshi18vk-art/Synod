@@ -15,7 +15,7 @@ export default function AdminPanel() {
   const { switchChainAsync } = useSwitchChain();
 
   // Create Proposal state
-  const [desc, setDesc] = useState("Execute standard trading strategy Alpha");
+  const [desc, setDesc] = useState("Execute $250K ETH/USDC arbitrage via Uniswap V3");
   const [amount, setAmount] = useState("0.1");
   const [target, setTarget] = useState(ADDRESSES.voting); // dummy target
   const [quorum, setQuorum] = useState("1000"); // Wait, quorum is rep weighted. 5 agents = max 2500. 1000 is good.

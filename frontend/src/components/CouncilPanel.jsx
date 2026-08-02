@@ -57,7 +57,7 @@ export default function CouncilPanel({ councilMeta, councilLoading, councilError
         <Brain size={16} className="text-monad" />
         AI Council
         <span className="text-xs font-normal text-gray-600 ml-1">
-          — 5 LLM-backed agents
+          — 5 independent risk reviewers
         </span>
       </h2>
 
