@@ -1,6 +1,22 @@
 # Synod — The pre-trade risk quorum for autonomous trading agents. No AI bot moves capital alone.
 
-Autonomous trading agents are starting to move real capital with no independent check. Synod is a reputation-weighted, commit-reveal consensus layer — a quorum of independent reviewers must approve a trade before escrowed funds release, with every vote and its rationale permanently on-chain.
+## The Problem
+
+Autonomous trading agents are starting to move real capital with no independent check.
+
+## Who It's For
+
+* AI agent and trading-bot developers who need their agents to coordinate on irreversible actions.
+* DAOs experimenting with autonomous agent governance.
+* Anyone building systems where one model's mistake shouldn't be able to move funds alone.
+
+## Why It Matters
+
+As agents get more autonomy over real capital, a single bad call becomes a real loss with no check and no accountability trail.
+
+## How Monad Fits
+
+10 agents commit and reveal in parallel, resolving in consecutive blocks in well under a second - that's Monad's parallel execution and sub-second finality, watch the quorum bar fill in the demo video below, not a claim in this README.
 
 ## Architecture
 
@@ -13,6 +29,9 @@ sequenceDiagram
     participant Council as AI Council (5)
     participant Proxy as Server-Side Proxy
     participant LLM as Sarvam AI / Groq
+    participant Target as Target
+    participant AgentRegistry as AgentRegistry
+    participant Frontend as Frontend
 
     Proposer->>SynodVoting: submit proposal (desc, amount, target, quorum)
     Proposer->>SynodEscrow: deposit funds
@@ -68,12 +87,12 @@ sequenceDiagram
 
 ## Deployed Contracts (Monad Testnet)
 
-| Contract | Address |
-|---|---|
-| AgentRegistry | [0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE](https://testnet.monadscan.com/address/0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE) |
-| SynodVoting | [0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656](https://testnet.monadscan.com/address/0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656) |
-| SynodEscrow | [0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051](https://testnet.monadscan.com/address/0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051) |
-| TimelockController | [0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963](https://testnet.monadscan.com/address/0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963) |
+| Contract | Address | Verified |
+|---|---|---|
+| AgentRegistry | [0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE](https://testnet.monadscan.com/address/0xd88B17aFAc01bC71e2A570844C5d694aDC30bDbE) | ✓ |
+| SynodVoting | [0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656](https://testnet.monadscan.com/address/0x78FB0D3C27Fab89ce4c27D09F1278adF2E159656) | ✓ |
+| SynodEscrow | [0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051](https://testnet.monadscan.com/address/0x9a7B299A40787DbC2dd95e3FeF6DB57595Ee6051) | ✓ |
+| TimelockController | [0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963](https://testnet.monadscan.com/address/0x0d5674E8e2176c4Fd8ba950F2Ca52442541B1963) | ✓ |
 
 ## Agent Roster
 
@@ -101,7 +120,7 @@ _Deterministic burner agents used to prove parallel execution at scale._
 
 ## Setup Instructions
 
-The repository contains two main workspaces: `contracts` and `frontend`.
+The repository contains three main workspaces: `contracts`, `frontend`, and the `Council API` proxy.
 
 1. **Clone the repository:**
    ```bash
@@ -118,7 +137,18 @@ The repository contains two main workspaces: `contracts` and `frontend`.
    npm run dev
    ```
 
-3. **Contracts Setup:**
+3. **Council / API Setup:**
+   The frontend includes a serverless proxy API (`api/council/vote.js`) that handles LLM interactions.
+   To run this locally alongside the frontend:
+   ```bash
+   cd frontend
+   # Ensure you have copied .env.example to .env
+   # Add your API keys to .env: SARVAM_API_KEY, GROQ_API_KEY, USE_CACHED_LLM
+   node server.js
+   ```
+   This starts the local API stub on port 3000.
+
+4. **Contracts Setup:**
    ```bash
    cd contracts
    npm install
@@ -136,14 +166,10 @@ The repository contains two main workspaces: `contracts` and `frontend`.
 
 > **CAUTION:** The burner and demo private keys provided in the demo and codebase are testnet-only throwaway keys. Never use this pattern with real funds on mainnet!
 
-## Why Monad?
-
-10 agents commit and reveal in parallel, resolving in consecutive blocks in well under a second - that's Monad's parallel execution and sub-second finality, watch the quorum bar fill in the demo video below, not a claim in this README.
-
 ## Links & Limitations
 
-* **Live Demo:** [TODO: Add Live Demo Link]
-* **Demo Video:** [TODO: Add Demo Video Link]
+* **Live Demo:** [https://synod-935g.vercel.app/](https://synod-935g.vercel.app/)
+* **Source Code:** [https://github.com/adityajoshi18vk-art/Synod](https://github.com/adityajoshi18vk-art/Synod)
 
 ### Known Limitations (Out of Scope for v1)
 * No cross-chain support.
