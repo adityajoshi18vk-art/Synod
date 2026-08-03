@@ -8,8 +8,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'viem', 'wagmi', 'recharts']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('viem') || id.includes('wagmi')) return 'web3';
+            if (id.includes('recharts')) return 'charts';
+            if (id.includes('react') || id.includes('react-dom')) return 'react';
+            return 'vendor';
+          }
         }
       }
     }
