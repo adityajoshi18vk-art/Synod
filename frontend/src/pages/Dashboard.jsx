@@ -9,7 +9,7 @@ import { useCouncilVote } from '../hooks/useCouncilVote';
 import MissionControlPanel from '../components/MissionControlPanel';
 import AgentDetailPanel from '../components/AgentDetailPanel';
 import ErrorBanner from '../components/ErrorBanner';
-import { publicClient, ADDRESSES, CANONICAL_AGENT_ADDRESSES } from '../lib/config';
+import { publicClient, ADDRESSES } from '../lib/config';
 import { REGISTRY_ABI } from '../lib/abis';
 import { withBackoff } from '../lib/rpcHelper';
 
@@ -110,9 +110,18 @@ export default function Dashboard() {
       }
 
       results.sort((a, b) => b.reputation - a.reputation);
-      // Display-only filter: only show the 10 canonical agents (5 burner + 5 council).
-      // Orphaned/duplicate registry entries are excluded without any on-chain changes.
-      setLeaderboard(results.filter(a => CANONICAL_AGENT_ADDRESSES.has(a.address.toLowerCase())));
+      // Display-only filter: only show the 7 active agents (5 council + 2 demo burners).
+      // 3 unused burner agents are hidden from UI without any on-chain changes.
+      const ACTIVE_AGENT_ADDRESSES = new Set([
+        "0x2eaA7453768409D69974788743B33fD3B6Fc3510", // Arjun
+        "0x502b93EB1297B2223491e857380a47d338a8D14E", // Nova
+        "0x99eDA17E3a63eba753903DEDD4B673F5aE32d10E", // Sentinel
+        "0xAACEb83Ea4Dfd0ce8C973b10Da975C54b2Ee98d5", // Cipher
+        "0x00189adCa451E9Bd5D9Da66Dc66E90A032Bbf8f0", // Oracle
+        "0x636C3E2709ff7949C56fe60a41A654e0F553D542", // Demo Agent 2
+        "0x0bB0ABf9A3d5ea6E1a1eD8a26e4c65bE35B20e22", // Demo Agent 5
+      ].map(a => a.toLowerCase()));
+      setLeaderboard(results.filter(a => ACTIVE_AGENT_ADDRESSES.has(a.address.toLowerCase())));
     } catch (err) {
       console.error("Failed to load leaderboard:", err);
       setLeaderboardError("Failed to fetch agents. Rate limit exceeded.");
