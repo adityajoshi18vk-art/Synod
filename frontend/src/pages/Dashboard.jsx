@@ -310,6 +310,7 @@ export default function Dashboard() {
             councilLoading={councilLoading}
             councilError={councilError}
             events={events}
+            isSimulating={isSimulating}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-[2fr,3fr] gap-6">

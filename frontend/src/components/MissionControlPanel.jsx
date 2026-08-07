@@ -27,20 +27,40 @@ export default function MissionControlPanel({
   councilMeta, 
   councilLoading, 
   councilError, 
-  events 
+  events,
+  isSimulating 
 }) {
   const [expandedAgent, setExpandedAgent] = useState(null);
   const [commitTime, setCommitTime] = useState(0);
   const [revealTime, setRevealTime] = useState(0);
   const [copiedAddress, setCopiedAddress] = useState(null);
+  const [timerActive, setTimerActive] = useState(false);
 
   const isPending = activeProposal && Number(activeProposal.status) === 0;
   
-  // On-Chain Timers
+  // Latch timer on when simulation starts — stays active through the full commit→reveal cycle
   useEffect(() => {
-    if (!activeProposal) {
+    if (isSimulating && !timerActive) {
+      setTimerActive(true);
+    }
+  }, [isSimulating, timerActive]);
+
+  // Reset timer latch when proposal status changes away from Pending
+  useEffect(() => {
+    if (activeProposal && Number(activeProposal.status) !== 0) {
+      setTimerActive(false);
       setCommitTime(0);
       setRevealTime(0);
+    }
+  }, [activeProposal?.status]);
+
+  // On-Chain Timers — only count down when timer is active
+  useEffect(() => {
+    if (!activeProposal || !timerActive) {
+      if (!timerActive) {
+        setCommitTime(0);
+        setRevealTime(0);
+      }
       return;
     }
 
@@ -56,8 +76,11 @@ export default function MissionControlPanel({
           return;
         }
         
-        setCommitTime(Math.max(0, cDeadline - now));
-        setRevealTime(Math.max(0, rDeadline - Math.max(now, cDeadline))); // Reveal window remaining after commit
+        const cRemaining = Math.max(0, cDeadline - now);
+        const rRemaining = Math.max(0, rDeadline - now);
+        
+        setCommitTime(cRemaining);
+        setRevealTime(cRemaining > 0 ? 0 : rRemaining); // Reveal only starts after commit ends
       } catch (err) {
         console.error('[MissionControl] Timer error:', err);
         setCommitTime(0);
@@ -68,7 +91,7 @@ export default function MissionControlPanel({
     updateTimers();
     const interval = setInterval(updateTimers, 1000);
     return () => clearInterval(interval);
-  }, [activeProposal]);
+  }, [activeProposal, timerActive]);
 
   const handleCopy = (address) => {
     navigator.clipboard.writeText(address);
