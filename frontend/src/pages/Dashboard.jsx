@@ -125,25 +125,30 @@ export default function Dashboard() {
     fetchLeaderboard();
   }, [activeProposal?.status]); // Refresh when proposal status changes (like when resolved)
 
+  // Stabilize dependency to primitive values to avoid re-firing on every object reference change
+  const proposalId = activeProposal?.id?.toString();
+  const proposalStatus = activeProposal ? Number(activeProposal.status) : -1;
+  const revealDeadline = activeProposal ? Number(activeProposal.revealDeadline) : 0;
+
   useEffect(() => {
-    if (!activeProposal || Number(activeProposal.status) !== 0) return;
+    if (!proposalId || proposalStatus !== 0 || !revealDeadline) return;
 
     let timeoutId;
     const now = Date.now();
-    const revealDeadlineMs = Number(activeProposal.revealDeadline) * 1000;
+    const revealDeadlineMs = revealDeadline * 1000;
     
     if (now > revealDeadlineMs) {
       // Deadline passed before page loaded or just now
-      autoResolveProposal(activeProposal.id).catch(console.error);
+      autoResolveProposal(proposalId).catch(console.error);
     } else {
       // Set timer to trigger right when deadline hits
       timeoutId = setTimeout(() => {
-        autoResolveProposal(activeProposal.id).catch(console.error);
+        autoResolveProposal(proposalId).catch(console.error);
       }, revealDeadlineMs - now + 2000); // 2 second buffer
     }
 
     return () => clearTimeout(timeoutId);
-  }, [activeProposal]);
+  }, [proposalId, proposalStatus, revealDeadline]);
 
   const handleSimulate = async (e) => {
     e?.preventDefault();
@@ -176,28 +181,32 @@ export default function Dashboard() {
   };
 
   const getStatusBadge = (status) => {
-    const yW = Number(activeProposal?.yesWeight || liveYesWeight || 0);
-    const nW = Number(activeProposal?.noWeight || liveNoWeight || 0);
-    const threshold = Number(activeProposal?.quorumThreshold || 1000);
+    try {
+      const yW = Number(activeProposal?.yesWeight ?? liveYesWeight ?? 0);
+      const nW = Number(activeProposal?.noWeight ?? liveNoWeight ?? 0);
+      const threshold = Number(activeProposal?.quorumThreshold ?? 1000);
 
-    switch (Number(status)) {
-      case 0: return <span className="px-3 py-1 bg-pending/20 text-pending rounded-full text-sm font-medium border border-pending/30">Pending</span>;
-      case 1: return (
-        <span className="px-3 py-1 bg-success/20 text-success rounded-full text-sm font-medium border border-success/30 flex items-center gap-1">
-          Consensus reached — trade executed
-          <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
-        </span>
-      );
-      case 2: {
-        const totalWeight = yW + nW;
-        if (totalWeight < threshold) {
-          return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Quorum not reached — trade blocked, funds returned</span>;
+      switch (Number(status)) {
+        case 0: return <span className="px-3 py-1 bg-pending/20 text-pending rounded-full text-sm font-medium border border-pending/30">Pending</span>;
+        case 1: return (
+          <span className="px-3 py-1 bg-success/20 text-success rounded-full text-sm font-medium border border-success/30 flex items-center gap-1">
+            Consensus reached — trade executed
+            <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
+          </span>
+        );
+        case 2: {
+          const totalWeight = yW + nW;
+          if (totalWeight < threshold) {
+            return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Quorum not reached — trade blocked, funds returned</span>;
+          }
+          return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Proposal Rejected — AI Council blocked high-risk trade.</span>;
         }
-        // Quorum was reached but NO outweighed YES
-        return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Proposal Rejected — AI Council blocked high-risk trade.</span>;
+        case 3: return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium border border-blue-500/30">Executed</span>;
+        default: return null;
       }
-      case 3: return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium border border-blue-500/30">Executed</span>;
-      default: return null;
+    } catch (err) {
+      console.error('[getStatusBadge] Render error:', err);
+      return <span className="px-3 py-1 bg-gray-500/20 text-gray-400 rounded-full text-sm font-medium border border-gray-500/30">Unknown</span>;
     }
   };
 

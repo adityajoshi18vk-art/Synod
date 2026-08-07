@@ -30,8 +30,8 @@ export default function MissionControlPanel({
   events 
 }) {
   const [expandedAgent, setExpandedAgent] = useState(null);
-  const [commitTime, setCommitTime] = useState(15);
-  const [revealTime, setRevealTime] = useState(15);
+  const [commitTime, setCommitTime] = useState(0);
+  const [revealTime, setRevealTime] = useState(0);
   const [copiedAddress, setCopiedAddress] = useState(null);
 
   const isPending = activeProposal && Number(activeProposal.status) === 0;
@@ -45,12 +45,24 @@ export default function MissionControlPanel({
     }
 
     const updateTimers = () => {
-      const now = Math.floor(Date.now() / 1000);
-      const cDeadline = Number(activeProposal.commitDeadline);
-      const rDeadline = Number(activeProposal.revealDeadline);
-      
-      setCommitTime(Math.max(0, cDeadline - now));
-      setRevealTime(Math.max(0, rDeadline - Math.max(now, cDeadline))); // Reveal window remaining after commit
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const cDeadline = Number(activeProposal.commitDeadline || 0);
+        const rDeadline = Number(activeProposal.revealDeadline || 0);
+        
+        if (!cDeadline || !rDeadline) {
+          setCommitTime(0);
+          setRevealTime(0);
+          return;
+        }
+        
+        setCommitTime(Math.max(0, cDeadline - now));
+        setRevealTime(Math.max(0, rDeadline - Math.max(now, cDeadline))); // Reveal window remaining after commit
+      } catch (err) {
+        console.error('[MissionControl] Timer error:', err);
+        setCommitTime(0);
+        setRevealTime(0);
+      }
     };
 
     updateTimers();
