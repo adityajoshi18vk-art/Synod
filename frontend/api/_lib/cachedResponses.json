@@ -1,22 +1,22 @@
 {
   "Arjun": {
     "vote": "NO",
-    "rationale": "High slippage and smart contract risk on single DEX."
+    "rationale": "High risk of illicit activity and capital loss."
   },
   "Nova": {
-    "vote": "YES",
-    "rationale": "Strong ETH trend"
+    "vote": "NO",
+    "rationale": "Illegal activity"
   },
   "Sentinel": {
     "vote": "NO",
-    "rationale": "Insufficient risk assessment"
+    "rationale": "Criminal activity"
   },
   "Cipher": {
-    "vote": "YES",
-    "rationale": "Profitable arbitrage"
+    "vote": "NO",
+    "rationale": "Insufficient amount"
   },
   "Oracle": {
     "vote": "NO",
-    "rationale": "High risk"
+    "rationale": "Illicit activity"
   }
 }

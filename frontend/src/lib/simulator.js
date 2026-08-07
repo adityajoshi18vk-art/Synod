@@ -171,8 +171,8 @@ function buildCouncilAgents(councilDecisions) {
  * @param {Array<{ name: string, vote: string, rationale: string }>} [councilDecisions]
  */
 export async function triggerDemoSwarm(proposalId, councilDecisions) {
-  // ── Build Burner agents ─────────────────────────────────────────
-  const burnerAgents = BURNER_KEYS.map((pk, idx) => {
+  // ── Build Burner agents (all 5 registered, but only 3 participate) ──
+  const allBurnerAgents = BURNER_KEYS.map((pk, idx) => {
     const account = privateKeyToAccount(pk);
     const client = createWalletClient({
       account,
@@ -188,6 +188,16 @@ export async function triggerDemoSwarm(proposalId, councilDecisions) {
 
     return { account, client, choice, salt, idx, tag: 'Burner' };
   });
+
+  // Fisher-Yates shuffle, then take the first 3
+  const BURNER_SWARM_SIZE = 2;
+  const shuffled = [...allBurnerAgents];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const burnerAgents = shuffled.slice(0, BURNER_SWARM_SIZE);
+  console.log(`🎲 Selected ${burnerAgents.length}/${allBurnerAgents.length} burner agents: [${burnerAgents.map(a => `Burner ${a.idx}`).join(', ')}]`);
 
   // ── Build Council agents (if decisions supplied) ────────────────
   const councilAgents = buildCouncilAgents(councilDecisions);

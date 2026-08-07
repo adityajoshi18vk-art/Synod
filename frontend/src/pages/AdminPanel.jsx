@@ -38,12 +38,12 @@ export default function AdminPanel() {
 
     try {
       // 1. Submit Proposal
-      // commitWindow = 120s, revealWindow = 120s for demo safety
+      // commitWindow = 30s, revealWindow = 30s for lightning-fast demo
       const txHash = await writeVoting({
         address: ADDRESSES.voting,
         abi: VOTING_ABI,
         functionName: 'submitProposal',
-        args: [desc, parseEther(amount), target, 120n, 120n, BigInt(quorum)],
+        args: [desc, parseEther(amount), target, 30n, 30n, BigInt(quorum)],
       });
       const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
       if (receipt.status === 'reverted') {

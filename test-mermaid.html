@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mermaid Preview</title>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true });
+  </script>
+</head>
+<body>
+  <div class="mermaid">
+    sequenceDiagram
+        participant Proposer
+        participant SynodVoting
+        participant SynodEscrow
+        participant BurnerSwarm as Burner Swarm (5)
+        participant Council as AI Council (5)
+        participant Proxy as Server-Side Proxy
+        participant LLM as Sarvam AI / Groq
+        participant Target as Target
+        participant AgentRegistry as AgentRegistry
+        participant Frontend as Frontend
+
+        Proposer->>SynodVoting: submit proposal (desc, amount, target, quorum)
+        Proposer->>SynodEscrow: deposit funds
+        
+        par Commit Phase
+            BurnerSwarm->>SynodVoting: commit hashed vote
+            Council->>Proxy: proposal details
+            Proxy->>LLM: request vote + rationale (llama-3.3-70b-versatile)
+            LLM-->>Proxy: parsed vote + rationale
+            Proxy-->>Council: return parsed vote
+            Council->>SynodVoting: commit hashed vote
+        end
+        
+        par Reveal Phase
+            BurnerSwarm->>SynodVoting: reveal vote + salt
+            Council->>SynodVoting: reveal vote + salt
+            Note over SynodVoting: Check against commit hash
+        end
+        
+        SynodVoting->>AgentRegistry: update reputation (EMA 0.8/0.2)
+        Note over SynodVoting: tallyVotes: compute reputation-weighted sum
+        
+        alt Quorum Met
+            SynodVoting->>SynodEscrow: release()
+            SynodEscrow->>Target: execute transfer
+        else Quorum Not Met
+            SynodVoting->>SynodEscrow: refund
+        end
+        
+        Note over SynodEscrow: Gated by TimelockController (60s delay) for emergency pause
+        Note over Frontend: React/viem/wagmi reads all state via on-chain events (no backend database)
+  </div>
+</body>
+</html>

@@ -7,7 +7,7 @@
  * Returns the raw message content string. Throws on network/timeout errors.
  */
 
-const TIMEOUT_MS = 6000;
+const TIMEOUT_MS = 15000;
 
 /**
  * @param {object} opts
