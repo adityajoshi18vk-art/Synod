@@ -176,6 +176,10 @@ export default function Dashboard() {
   };
 
   const getStatusBadge = (status) => {
+    const yW = Number(activeProposal?.yesWeight || liveYesWeight || 0);
+    const nW = Number(activeProposal?.noWeight || liveNoWeight || 0);
+    const threshold = Number(activeProposal?.quorumThreshold || 1000);
+
     switch (Number(status)) {
       case 0: return <span className="px-3 py-1 bg-pending/20 text-pending rounded-full text-sm font-medium border border-pending/30">Pending</span>;
       case 1: return (
@@ -184,7 +188,14 @@ export default function Dashboard() {
           <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
         </span>
       );
-      case 2: return <span className="px-3 py-1 bg-error/20 text-error rounded-full text-sm font-medium border border-error/30">Quorum not reached — trade blocked, funds returned</span>;
+      case 2: {
+        const totalWeight = yW + nW;
+        if (totalWeight < threshold) {
+          return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Quorum not reached — trade blocked, funds returned</span>;
+        }
+        // Quorum was reached but NO outweighed YES
+        return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Proposal Rejected — AI Council blocked high-risk trade.</span>;
+      }
       case 3: return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium border border-blue-500/30">Executed</span>;
       default: return null;
     }
