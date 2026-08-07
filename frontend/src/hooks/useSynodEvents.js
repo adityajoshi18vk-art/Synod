@@ -61,14 +61,18 @@ export function useSynodEvents() {
         onLogs: logs => {
           setRpcError(null);
           logs.forEach(log => {
-            if (log.eventName === 'VoteCommitted') {
-              addEvent('VoteCommitted', { voter: log.args.voter, weight: log.args.weight.toString() });
-            } else if (log.eventName === 'VoteRevealed') {
-              addEvent('VoteRevealed', { voter: log.args.voter, choice: log.args.choice, weight: log.args.weight.toString(), rationale: log.args.rationale });
-            } else if (log.eventName === 'ProposalResolved') {
-              addEvent('ProposalResolved', { status: log.args.status, yes: log.args.yesWeight.toString(), no: log.args.noWeight.toString() });
-            } else if (log.eventName === 'ProposalCreated') {
-              addEvent('ProposalCreated', { id: log.args.proposalId.toString(), desc: log.args.description });
+            try {
+              if (log.eventName === 'VoteCommitted') {
+                addEvent('VoteCommitted', { voter: log.args.voter, weight: log.args.weight?.toString() || '0' });
+              } else if (log.eventName === 'VoteRevealed') {
+                addEvent('VoteRevealed', { voter: log.args.voter, choice: log.args.choice, weight: log.args.weight?.toString() || '0', rationale: log.args.rationale || '' });
+              } else if (log.eventName === 'ProposalResolved') {
+                addEvent('ProposalResolved', { status: log.args.status, yes: log.args.yesWeight?.toString() || '0', no: log.args.noWeight?.toString() || '0' });
+              } else if (log.eventName === 'ProposalCreated') {
+                addEvent('ProposalCreated', { id: log.args.proposalId?.toString() || '0', desc: log.args.description || '' });
+              }
+            } catch (parseErr) {
+              console.warn('[useSynodEvents] Failed to parse voting event:', parseErr, log);
             }
           });
         },
@@ -84,12 +88,16 @@ export function useSynodEvents() {
         onLogs: logs => {
           setRpcError(null);
           logs.forEach(log => {
-            if (log.eventName === 'EscrowFunded') {
-              addEvent('EscrowFunded', { amount: log.args.amount.toString() });
-            } else if (log.eventName === 'EscrowReleased') {
-              addEvent('EscrowReleased', { target: log.args.target });
-            } else if (log.eventName === 'EscrowRefunded') {
-              addEvent('EscrowRefunded', { to: log.args.depositor });
+            try {
+              if (log.eventName === 'EscrowFunded') {
+                addEvent('EscrowFunded', { amount: log.args.amount?.toString() || '0' });
+              } else if (log.eventName === 'EscrowReleased') {
+                addEvent('EscrowReleased', { target: log.args.target || '' });
+              } else if (log.eventName === 'EscrowRefunded') {
+                addEvent('EscrowRefunded', { to: log.args.depositor || '' });
+              }
+            } catch (parseErr) {
+              console.warn('[useSynodEvents] Failed to parse escrow event:', parseErr, log);
             }
           });
         },

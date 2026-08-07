@@ -134,7 +134,7 @@ export default function AgentDetailPanel() {
                   className="text-[11px] font-mono leading-relaxed"
                 >
                   <span className="text-gray-600 mr-2">[{log.time}]</span>
-                  <span className={`font-semibold mr-2 ${log.agent.includes('#1') || log.agent.includes('#3') ? 'text-purple-400' : 'text-gray-400'}`}>
+                  <span className={`font-semibold mr-2 ${log.agent?.includes('#1') || log.agent?.includes('#3') ? 'text-purple-400' : 'text-gray-400'}`}>
                     {log.agent}
                   </span>
                   <span className="text-gray-300">{log.action}</span>

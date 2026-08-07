@@ -102,11 +102,14 @@ export default function MissionControlPanel({
   const revealedOnChain = new Set();
   if (events) {
     events.forEach(ev => {
-      if (ev.type === 'VoteRevealed' && ev.voter) {
-        if (COUNCIL_ADDRESSES.includes(ev.voter.toLowerCase())) {
-          revealedOnChain.add(ev.voter.toLowerCase());
+      try {
+        if (ev.type === 'VoteRevealed' && ev.voter) {
+          const voterAddr = String(ev.voter).toLowerCase();
+          if (COUNCIL_ADDRESSES.includes(voterAddr)) {
+            revealedOnChain.add(voterAddr);
+          }
         }
-      }
+      } catch { /* skip malformed event */ }
     });
   }
 
