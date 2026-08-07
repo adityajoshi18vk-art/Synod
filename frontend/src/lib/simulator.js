@@ -386,7 +386,7 @@ export async function autoResolveProposal(proposalId) {
         }
         console.log(`[AutoResolve] Tally confirmed: ${hash}`);
       } catch (err) {
-        if (!err.message.includes("Already tallied") && !err.message.includes("Proposal not pending")) {
+        if (!err.message?.includes("Already tallied") && !err.message?.includes("Proposal not pending")) {
           console.error("[AutoResolve] Tally failed:", err.shortMessage || err.message);
         }
       }
@@ -435,7 +435,7 @@ export async function autoResolveProposal(proposalId) {
             }
             console.log(`[AutoResolve] Release confirmed: ${hash}`);
           } catch (err) {
-            if (!err.message.includes("Already released")) {
+            if (!err.message?.includes("Already released")) {
               console.error("[AutoResolve] Release failed:", err.shortMessage || err.message);
             }
           }
@@ -455,7 +455,7 @@ export async function autoResolveProposal(proposalId) {
             }
             console.log(`[AutoResolve] Refund confirmed: ${hash}`);
           } catch (err) {
-            if (!err.message.includes("Already refunded")) {
+            if (!err.message?.includes("Already refunded")) {
               console.error("[AutoResolve] Refund failed:", err.shortMessage || err.message);
             }
           }
