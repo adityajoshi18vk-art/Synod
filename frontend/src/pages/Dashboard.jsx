@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useSynodEvents } from '../hooks/useSynodEvents';
 import { triggerDemoSwarm, autoResolveProposal } from '../lib/simulator';
 import { useCouncilVote } from '../hooks/useCouncilVote';
-import CouncilPanel from '../components/CouncilPanel';
+import MissionControlPanel from '../components/MissionControlPanel';
+import AgentDetailPanel from '../components/AgentDetailPanel';
 import ErrorBanner from '../components/ErrorBanner';
 import { publicClient, ADDRESSES, CANONICAL_AGENT_ADDRESSES } from '../lib/config';
 import { REGISTRY_ABI } from '../lib/abis';
@@ -29,9 +30,24 @@ export default function Dashboard() {
     let eventSum = 0n;
     const seen = new Set();
     
-    // Aggregate yes weights from local events (VoteRevealed with choice === true)
     for (const ev of events) {
       if (ev.type === 'VoteRevealed' && ev.choice === true && !seen.has(ev.voter)) {
+        eventSum += BigInt(ev.weight);
+        seen.add(ev.voter);
+      }
+    }
+    
+    return base > eventSum ? base : eventSum;
+  }, [activeProposal, events]);
+
+  const liveNoWeight = useMemo(() => {
+    if (!activeProposal) return 0n;
+    let base = BigInt(activeProposal.noWeight || 0);
+    let eventSum = 0n;
+    const seen = new Set();
+    
+    for (const ev of events) {
+      if (ev.type === 'VoteRevealed' && ev.choice === false && !seen.has(ev.voter)) {
         eventSum += BigInt(ev.weight);
         seen.add(ev.voter);
       }
@@ -175,16 +191,18 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-bg p-6 text-gray-200 font-sans">
+    <div className="min-h-screen bg-[#08080a] p-6 text-gray-200 font-sans relative overflow-hidden">
+      {/* Background Grid */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20 pointer-events-none"></div>
       {/* Header */}
-      <header className="max-w-7xl mx-auto flex items-center justify-between mb-8 border-b border-border pb-6">
+      <header className="max-w-7xl mx-auto flex items-center justify-between mb-8 border-b border-white/10 pb-6 relative z-10">
         <div className="flex items-center gap-3" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
           <ShieldCheck className="text-monad" size={32} />
           <h1 className="text-2xl font-bold tracking-tight">Synod Mission Control</h1>
         </div>
         <button 
           onClick={() => navigate('/admin')}
-          className="flex items-center gap-2 px-4 py-2 bg-card hover:bg-border border border-border rounded-lg transition-colors text-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-[#111116] hover:bg-white/5 border border-white/10 rounded-lg transition-colors text-sm backdrop-blur-md"
         >
           <Settings size={16} /> Admin Panel
         </button>
@@ -197,7 +215,7 @@ export default function Dashboard() {
           <ErrorBanner error={rpcError} onRetry={retry} />
 
           {/* Active Proposal Card */}
-          <div className="bg-card rounded-2xl border border-border p-6 shadow-xl relative overflow-hidden">
+          <div className="backdrop-blur-md bg-[#111116]/80 rounded-2xl border border-purple-500/20 p-6 shadow-[0_0_30px_rgba(139,92,246,0.05)] relative overflow-hidden hover:border-purple-500/40 transition-colors z-10">
             <div className="absolute top-0 left-0 w-1 bg-monad h-full" />
             
             <h2 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-6 flex items-center gap-2">
@@ -230,7 +248,7 @@ export default function Dashboard() {
                         type="button"
                         onClick={handleSimulate}
                         disabled={isSimulating}
-                        className="flex items-center gap-2 px-6 py-3 bg-monad hover:bg-monad-light disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all shadow-[0_0_20px_rgba(138,43,226,0.2)]"
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:shadow-[0_0_25px_rgba(139,92,246,0.5)] hover:scale-105 disabled:hover:scale-100 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-all duration-300 border border-white/10"
                       >
                         {isSimulating ? <Activity size={18} className="animate-spin" /> : <Play size={18} />}
                         {isSimulating ? 'Agents Running...' : 'Trigger Demo Swarm'}
@@ -263,32 +281,18 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Council Panel — LLM-backed agents */}
-          <CouncilPanel
+          {/* Mission Control Panel — High Density UI */}
+          <MissionControlPanel
+            activeProposal={activeProposal}
+            liveYesWeight={liveYesWeight}
+            liveNoWeight={liveNoWeight}
             councilMeta={councilMeta}
             councilLoading={councilLoading}
             councilError={councilError}
             events={events}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Quorum Progress */}
-            {activeProposal && (
-              <div className="bg-card rounded-2xl border border-border p-6 shadow-xl">
-                <h3 className="text-lg font-semibold mb-4 text-white">Risk Committee Threshold</h3>
-                <div className="w-full bg-black rounded-full h-6 relative overflow-hidden border border-border">
-                  <div 
-                    className="absolute top-0 left-0 h-full bg-success transition-all duration-1000 ease-out"
-                    style={{ width: `${Math.min(100, (Number(liveYesWeight) / Number(activeProposal.quorumThreshold)) * 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-2 text-sm text-gray-400">
-                  <span>0</span>
-                  <span>{liveYesWeight.toString()} / {activeProposal.quorumThreshold.toString()} Weight</span>
-                </div>
-              </div>
-            )}
-
+          <div className="grid grid-cols-1 lg:grid-cols-[2fr,3fr] gap-6">
             {/* Agent Leaderboard */}
             <div className="bg-card rounded-2xl border border-border p-6 shadow-xl">
               <h3 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
@@ -319,6 +323,9 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+            
+            {/* Right Side Column (Agent Detail & Live Exec) */}
+            <AgentDetailPanel />
           </div>
         </div>
 
