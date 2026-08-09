@@ -113,13 +113,13 @@ export default function Dashboard() {
       // Display-only filter: only show the 7 active agents (5 council + 2 demo burners).
       // 3 unused burner agents are hidden from UI without any on-chain changes.
       const ACTIVE_AGENT_ADDRESSES = new Set([
-        "0x2eaA7453768409D69974788743B33fD3B6Fc3510", // Arjun
-        "0x502b93EB1297B2223491e857380a47d338a8D14E", // Nova
-        "0x99eDA17E3a63eba753903DEDD4B673F5aE32d10E", // Sentinel
-        "0xAACEb83Ea4Dfd0ce8C973b10Da975C54b2Ee98d5", // Cipher
-        "0x00189adCa451E9Bd5D9Da66Dc66E90A032Bbf8f0", // Oracle
-        "0x636C3E2709ff7949C56fe60a41A654e0F553D542", // Demo Agent 2
-        "0x0bB0ABf9A3d5ea6E1a1eD8a26e4c65bE35B20e22", // Demo Agent 5
+        "0x4F2295662756a5B613C517c3d5d7e3Bd34bB1f02", // Demo Agent 1 (Burner 1)
+        "0x8206c69302eAe52D5EF4D0d390177bf60CdaAd4a", // Demo Agent 2 (Burner 2)
+        "0xFe767bf3135B918922FAd6047e9A852b8579624C", // Arjun (Council 1)
+        "0x29a733e6fE9D909047758c3D56F0bC8860309adb", // Nova (Council 2)
+        "0x3577BAa4b973d45675F68BB41cA12C31c016Dc93", // Sentinel (Council 3)
+        "0xEDEbb4507b49df4AFBACf26e13A9E083C3567381", // Cipher (Council 4)
+        "0x0DD9Db32668732d8C295Aec76904F62b32af744e", // Oracle (Council 5)
       ].map(a => a.toLowerCase()));
       setLeaderboard(results.filter(a => ACTIVE_AGENT_ADDRESSES.has(a.address.toLowerCase())));
     } catch (err) {
