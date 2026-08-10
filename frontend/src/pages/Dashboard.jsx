@@ -204,19 +204,27 @@ export default function Dashboard() {
         case 3: {
           const totalWeight = yW + nW;
 
-          // State 1: Quorum not reached — insufficient total voting weight
+          // 1. Quorum Failed
           if (totalWeight < threshold) {
-            return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-900">Quorum not reached — trade blocked, funds returned</span>;
+            return (
+              <span className="px-3 py-1 text-red-500 bg-red-950/30 border border-red-900/50 rounded-full text-sm font-medium">
+                Quorum not reached — trade blocked, funds returned
+              </span>
+            );
           }
 
-          // State 2: Rejected — quorum met but NO votes outweigh YES
+          // 2. Rejected by AI Council
           if (nW > yW) {
-            return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-900">Proposal Rejected — AI Council blocked high-risk trade</span>;
+            return (
+              <span className="px-3 py-1 text-red-400 bg-red-950/30 border border-red-500/30 rounded-full text-sm font-medium">
+                Proposal Rejected — AI Council blocked high-risk trade
+              </span>
+            );
           }
 
-          // State 3: Consensus reached — quorum met and YES votes win
+          // 3. Approved / Consensus Reached
           return (
-            <span className="px-3 py-1 bg-emerald-950/50 text-emerald-400 rounded-full text-sm font-medium border border-emerald-900 flex items-center gap-1">
+            <span className="px-3 py-1 text-emerald-400 bg-emerald-950/30 border border-emerald-500/30 rounded-full text-sm font-medium flex items-center gap-1">
               Consensus reached — trade executed
               <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
             </span>
