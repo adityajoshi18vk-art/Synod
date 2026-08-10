@@ -48,7 +48,13 @@ export function useSynodEvents() {
         fetchActiveProposal();
       } else if (type === 'ProposalResolved') {
         // Optimistically update status to avoid a re-fetch
-        setActiveProposal(prev => prev ? { ...prev, status: data.status, tallied: true } : prev);
+        setActiveProposal(prev => prev ? { 
+          ...prev, 
+          status: data.status, 
+          tallied: true,
+          yesWeight: BigInt(data.yes),
+          noWeight: BigInt(data.no) 
+        } : prev);
       }
     };
 

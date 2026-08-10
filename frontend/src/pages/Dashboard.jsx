@@ -193,8 +193,8 @@ export default function Dashboard() {
 
   const getStatusBadge = (status) => {
     try {
-      const yW = Number(activeProposal?.yesWeight ?? liveYesWeight ?? 0);
-      const nW = Number(activeProposal?.noWeight ?? liveNoWeight ?? 0);
+      const yW = Number(liveYesWeight || 0);
+      const nW = Number(liveNoWeight || 0);
       const threshold = Number(activeProposal?.quorumThreshold ?? 1000);
 
       switch (Number(status)) {
