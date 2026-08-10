@@ -104,6 +104,8 @@ export default function Dashboard() {
           results.push({
             address: agentAddrs[i],
             reputation: Number(reputationScore),
+            totalVotes: Number(totalVotes),
+            correctVotes: Number(correctVotes),
             label: label || 'Unknown'
           });
         }
@@ -364,7 +366,7 @@ export default function Dashboard() {
             </div>
             
             {/* Right Side Column (Agent Detail & Live Exec) */}
-            <AgentDetailPanel />
+            <AgentDetailPanel leaderboard={leaderboard} />
           </div>
         </div>
 

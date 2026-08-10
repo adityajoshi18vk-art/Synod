@@ -2,8 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { Brain, Clock, ChevronDown, Activity, ActivitySquare, Terminal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function AgentDetailPanel() {
+export default function AgentDetailPanel({ leaderboard = [] }) {
   const [logs, setLogs] = useState([]);
+
+  // Find Arjun's on-chain data from leaderboard (match by label containing "Arjun")
+  const arjunData = leaderboard.find(a => a.label && a.label.includes('Arjun'));
+
+  // Derive live metrics with safe fallbacks to mock values
+  const reputation = arjunData?.reputation ?? 744;
+  const totalVotes = arjunData?.totalVotes ?? 450;
+  const correctVotes = arjunData?.correctVotes ?? 435;
+  const address = arjunData?.address ?? '0xFe76...';
+
+  const successRate = totalVotes > 0
+    ? ((correctVotes / totalVotes) * 100).toFixed(1)
+    : '98.2';
+  const dissentCount = totalVotes - correctVotes;
+  const dissentRatio = totalVotes > 0
+    ? ((dissentCount / totalVotes) * 100).toFixed(1)
+    : '3.3';
+
+  // Determine reputation tier based on score (0-1000 scale)
+  const getTier = (score) => {
+    if (score >= 700) return 'Top-Tier';
+    if (score >= 400) return 'Mid-Tier';
+    return 'Low-Tier';
+  };
+  const tier = getTier(reputation);
+  const truncAddr = arjunData
+    ? `${address.slice(0, 6)}...${address.slice(-4)}`
+    : '0xFe76...';
 
   // Mock live execution feed
   useEffect(() => {
@@ -65,7 +93,7 @@ export default function AgentDetailPanel() {
         <div className="flex justify-between items-start mb-5">
           <h3 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
             <Brain size={16} className="text-purple-400" />
-            Agent Profile — Arjun <span className="font-mono text-xs text-gray-500 font-normal">(0xFe76...)</span>
+            Agent Profile — Arjun <span className="font-mono text-xs text-gray-500 font-normal">({truncAddr})</span>
           </h3>
           <div className="flex items-center gap-1 text-xs text-gray-400 bg-white/5 border border-white/10 px-2 py-1 rounded-md cursor-pointer hover:bg-white/10 transition-colors">
             24 Hrs <ChevronDown size={12} />
@@ -82,7 +110,7 @@ export default function AgentDetailPanel() {
           <div>
             <div className="text-xs text-gray-400 mb-0.5">Reputation Tier</div>
             <div className="text-sm font-bold text-white flex items-center gap-2">
-              Top-Tier <span className="text-purple-400 font-mono">(744)</span>
+              {tier} <span className="text-purple-400 font-mono">({reputation})</span>
             </div>
           </div>
         </div>
@@ -90,11 +118,11 @@ export default function AgentDetailPanel() {
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-black/30 rounded-lg p-3 border border-white/5">
             <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Avg. Success</div>
-            <div className="text-sm font-mono text-green-400">98.2%</div>
+            <div className="text-sm font-mono text-green-400">{successRate}%</div>
           </div>
           <div className="bg-black/30 rounded-lg p-3 border border-white/5">
             <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Dissent Ratio</div>
-            <div className="text-sm font-mono text-purple-400">15/450 (3.3%)</div>
+            <div className="text-sm font-mono text-purple-400">{dissentCount}/{totalVotes} ({dissentRatio}%)</div>
           </div>
         </div>
 
