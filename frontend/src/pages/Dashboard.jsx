@@ -197,20 +197,29 @@ export default function Dashboard() {
 
       switch (Number(status)) {
         case 0: return <span className="px-3 py-1 bg-pending/20 text-pending rounded-full text-sm font-medium border border-pending/30">Pending</span>;
-        case 1: return (
-          <span className="px-3 py-1 bg-success/20 text-success rounded-full text-sm font-medium border border-success/30 flex items-center gap-1">
-            Consensus reached — trade executed
-            <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
-          </span>
-        );
-        case 2: {
+        case 1:
+        case 2:
+        case 3: {
           const totalWeight = yW + nW;
+
+          // State 1: Quorum not reached — insufficient total voting weight
           if (totalWeight < threshold) {
-            return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Quorum not reached — trade blocked, funds returned</span>;
+            return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-900">Quorum not reached — trade blocked, funds returned</span>;
           }
-          return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-500/30">Proposal Rejected — AI Council blocked high-risk trade.</span>;
+
+          // State 2: Rejected — quorum met but NO votes outweigh YES
+          if (nW > yW) {
+            return <span className="px-3 py-1 bg-red-950/50 text-red-400 rounded-full text-sm font-medium border border-red-900">Proposal Rejected — AI Council blocked high-risk trade</span>;
+          }
+
+          // State 3: Consensus reached — quorum met and YES votes win
+          return (
+            <span className="px-3 py-1 bg-emerald-950/50 text-emerald-400 rounded-full text-sm font-medium border border-emerald-900 flex items-center gap-1">
+              Consensus reached — trade executed
+              <a href={`https://testnet.monadscan.com/address/${ADDRESSES.escrow}`} target="_blank" rel="noreferrer" className="underline ml-1 opacity-80 hover:opacity-100">Tx</a>
+            </span>
+          );
         }
-        case 3: return <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-medium border border-blue-500/30">Executed</span>;
         default: return null;
       }
     } catch (err) {
