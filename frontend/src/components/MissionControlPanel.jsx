@@ -249,8 +249,9 @@ export default function MissionControlPanel({
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold text-white text-base">{agent.name}</span>
                           <span className="text-xs text-gray-400 hidden sm:inline">— {agent.title}</span>
-                          <span className="px-2 py-0.5 text-[10px] uppercase font-mono tracking-wider rounded border border-white/10 bg-black text-gray-300">
-                            {agent.provider}
+                          <span className="px-2 py-0.5 text-[10px] font-mono tracking-wider rounded border border-white/10 bg-black text-gray-300 flex items-center gap-1.5">
+                            <span className="uppercase">{agent.provider}</span>
+                            {agent.model && <span className="text-gray-500 border-l border-white/10 pl-1.5">{agent.model}</span>}
                           </span>
                         </div>
                         
